@@ -38,17 +38,26 @@ func main() {
 	// ---------------------------
 	// Setup Infrastruktur
 	// ---------------------------
-	// PostgreSQL connection
-	dsn := "postgres://admin:password123@localhost:5432/jalur_berlian_db?sslmode=disable"
-	db, err := database.NewPostgres(dsn)
+	// PostgreSQL connection - read from environment (REQUIRED, no fallback for secrets!)
+	dbSource := os.Getenv("DB_SOURCE")
+	if dbSource == "" {
+		log.Fatal("❌ ERROR: DB_SOURCE environment variable is not set!\n" +
+			"Please set it in .env.local or environment:\n" +
+			"  DB_SOURCE=postgres://user:password@host:5432/dbname?sslmode=disable\n" +
+			"\nExample:\n" +
+			"  DB_SOURCE=postgres://admin:mypassword@localhost:5432/jalur_berlian_db?sslmode=disable")
+	}
+	db, err := database.NewPostgres(dbSource)
 	if err != nil {
 		log.Fatalf("Gagal inisialisasi database: %v", err)
 	}
 
-	// Redis connection
+	// Redis connection - read from environment (REQUIRED)
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
-		redisAddr = "localhost:6380"
+		log.Fatal("❌ ERROR: REDIS_ADDR environment variable is not set!\n" +
+			"Please set it in .env.local or environment:\n" +
+			"  REDIS_ADDR=host:port (e.g., localhost:6379)")
 	}
 	redisClient := database.NewRedis(redisAddr, "", 0)
 	defer redisClient.Close()
@@ -73,11 +82,16 @@ func main() {
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, truckRepo)
 	locationUsecase := usecase.NewLocationUsecase(locRepo)
 
-	// JWT Secret dari environment variable atau default (DANGER: change in production!)
+	// JWT Secret dari environment variable (REQUIRED, no hardcoded secrets!)
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Println("WARNING: JWT_SECRET not set, using default (NOT safe for production!)")
-		jwtSecret = "dev-secret-key-change-in-production" // MUST change in production
+		log.Fatal("❌ ERROR: JWT_SECRET environment variable is not set!\n" +
+			"This secret MUST be set in .env.local or environment.\n" +
+			"Generate a secure secret using:\n" +
+			"  Windows: [BitConverter]::ToString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)) -replace '-','' | ForEach-Object {$_}\n" +
+			"  Linux/Mac: openssl rand -hex 32\n" +
+			"\nThen set it in .env.local:\n" +
+			"  JWT_SECRET=your_generated_secret_here")
 	}
 	authUsecase := usecase.NewAuthUsecase(userRepo, jwtSecret)
 
