@@ -1,0 +1,74 @@
+# Environment Variables
+# .env is template (safe to commit)
+# .env.local.example is reference (safe to commit)
+# But .env.local contains actual secrets (DO NOT COMMIT)
+.env.local
+.env.production
+.env.production.local
+.env.*.local
+# Except .env.local.example which is safe reference
+!.env.local.example
+
+# Go
+/bin/
+/vendor/
+*.exe
+*.dll
+*.so
+*.dylib
+**/*.out
+dist/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+*.iml
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbsdb
+
+# Logs
+*.log
+logs/
+*.txt
+debug.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+pgdata/
+dump.rdb
+
+# Testing
+*.test
+coverage.out
+coverage.html
+.coverage/
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# IDE Run Configurations
+.run/
+
+# Sensitive Files
+*.key
+*.crt
+*.pem
+secrets.yaml
+.secrets/
