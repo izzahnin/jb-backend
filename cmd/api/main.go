@@ -2,10 +2,16 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/izzahnin/jalur-berlian-backend/docs"
 	"github.com/izzahnin/jalur-berlian-backend/internal/handler"
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
@@ -34,93 +40,156 @@ import (
 // @description Type "Bearer" followed by a space and JWT token.
 
 // @schemes http https
-func main() {
-	// ---------------------------
-	// Setup Infrastruktur
-	// ---------------------------
-	// PostgreSQL connection - read from environment (REQUIRED, no fallback for secrets!)
-	dbSource := os.Getenv("DB_SOURCE")
-	if dbSource == "" {
-		log.Fatal("❌ ERROR: DB_SOURCE environment variable is not set!\n" +
-			"Please set it in .env.local or environment:\n" +
-			"  DB_SOURCE=postgres://user:password@host:5432/dbname?sslmode=disable\n" +
-			"\nExample:\n" +
-			"  DB_SOURCE=postgres://admin:mypassword@localhost:5432/jalur_berlian_db?sslmode=disable")
+
+// Config holds application configuration
+type Config struct {
+	DBSource   string
+	RedisAddr  string
+	JWTSecret  string
+	Port       string
+	GinMode    string
+}
+
+// Application holds all dependencies
+type Application struct {
+	Config    *Config
+	DB        *sqlx.DB
+	Redis     *database.RedisClient
+	Router    *gin.Engine
+	Handler   *handler.Handler
+}
+
+// LoadConfig loads environment variables with validation
+func LoadConfig() (*Config, error) {
+	cfg := &Config{
+		DBSource:  os.Getenv("DB_SOURCE"),
+		RedisAddr: os.Getenv("REDIS_ADDR"),
+		JWTSecret: os.Getenv("JWT_SECRET"),
+		Port:      os.Getenv("PORT"),
+		GinMode:   os.Getenv("GIN_MODE"),
 	}
-	db, err := database.NewPostgres(dbSource)
+
+	// Validate required configuration
+	if cfg.DBSource == "" {
+		return nil, fmt.Errorf("missing required config: DB_SOURCE not set in environment")
+	}
+	if cfg.RedisAddr == "" {
+		return nil, fmt.Errorf("missing required config: REDIS_ADDR not set in environment")
+	}
+	if cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("missing required config: JWT_SECRET not set in environment")
+	}
+
+	// Set defaults for optional config
+	if cfg.Port == "" {
+		cfg.Port = "8080"
+	}
+	if cfg.GinMode == "" {
+		cfg.GinMode = "release"
+	}
+
+	return cfg, nil
+}
+
+// InitializeApplication initializes all infrastructure dependencies
+func InitializeApplication(ctx context.Context, cfg *Config) (*Application, error) {
+	app := &Application{Config: cfg}
+
+	// Initialize PostgreSQL
+	fmt.Println("🔧 Initializing PostgreSQL connection...")
+	db, err := database.NewPostgres(cfg.DBSource)
 	if err != nil {
-		log.Fatalf("Gagal inisialisasi database: %v", err)
+		return nil, fmt.Errorf("failed to initialize PostgreSQL: %w", err)
 	}
-
-	// Redis connection - read from environment (REQUIRED)
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		log.Fatal("❌ ERROR: REDIS_ADDR environment variable is not set!\n" +
-			"Please set it in .env.local or environment:\n" +
-			"  REDIS_ADDR=host:port (e.g., localhost:6379)")
+	
+	// Verify database connection
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("database health check failed: %w", err)
 	}
-	redisClient := database.NewRedis(redisAddr, "", 0)
-	defer redisClient.Close()
-	if err := redisClient.Ping(context.Background()); err != nil {
-		log.Fatalf("redis ping: %v", err)
+	fmt.Println("✅ PostgreSQL connected")
+	app.DB = db
+
+	// Initialize Redis
+	fmt.Println("🔧 Initializing Redis connection...")
+	redis := database.NewRedis(cfg.RedisAddr, "", 0)
+	
+	// Verify Redis connection
+	if err := redis.Ping(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("redis health check failed: %w", err)
 	}
+	fmt.Println("✅ Redis connected")
+	app.Redis = redis
 
-	// ---------------------------
-	// Repositories (Data Layer)
-	// ---------------------------
-	truckRepo := repository.NewTruckRepository(db)
-	orderRepo := repository.NewOrderRepository(db)
-	locRepo := repository.NewRedisLocationRepo(redisClient)
-	userRepo := repository.NewUserRepository(db)
-	// auditLogRepo will be needed in STEP 3 (logging) when handlers log mutations
-	// auditLogRepo := repository.NewAuditLogRepository(db)
+	// Initialize Repositories (Data Layer)
+	fmt.Println("🔧 Initializing repositories...")
+	truckRepo := repository.NewTruckRepository(app.DB)
+	orderRepo := repository.NewOrderRepository(app.DB)
+	locRepo := repository.NewRedisLocationRepo(app.Redis)
+	userRepo := repository.NewUserRepository(app.DB)
+	fmt.Println("✅ Repositories initialized")
 
-	// ---------------------------
-	// Usecases (Business Logic)
-	// ---------------------------
+	// Initialize Usecases (Business Logic Layer)
+	fmt.Println("🔧 Initializing usecases...")
 	truckUsecase := usecase.NewTruckUsecase(truckRepo)
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, truckRepo)
 	locationUsecase := usecase.NewLocationUsecase(locRepo)
+	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)
+	fmt.Println("✅ Usecases initialized")
 
-	// JWT Secret dari environment variable (REQUIRED, no hardcoded secrets!)
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("❌ ERROR: JWT_SECRET environment variable is not set!\n" +
-			"This secret MUST be set in .env.local or environment.\n" +
-			"Generate a secure secret using:\n" +
-			"  Windows: [BitConverter]::ToString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)) -replace '-','' | ForEach-Object {$_}\n" +
-			"  Linux/Mac: openssl rand -hex 32\n" +
-			"\nThen set it in .env.local:\n" +
-			"  JWT_SECRET=your_generated_secret_here")
-	}
-	authUsecase := usecase.NewAuthUsecase(userRepo, jwtSecret)
+	// Initialize Router (Presentation Layer)
+	fmt.Println("🔧 Initializing router...")
+	gin.SetMode(cfg.GinMode)
+	router := gin.Default()
 
-	// ---------------------------
-	// ---------------------------
-	// Router Setup
-	// ---------------------------
-	r := gin.Default()
-
-	// Create handler dengan dependency injection
+	// Initialize Handler with all dependencies
 	h := handler.NewHandler(
 		truckRepo, orderRepo, locRepo, userRepo,
 		truckUsecase, orderUsecase, locationUsecase, authUsecase,
-		jwtSecret,
+		cfg.JWTSecret,
 	)
 
-	// Register semua routes (21 endpoints)
-	h.RegisterAllRoutes(r)
+	// Register all routes
+	h.RegisterAllRoutes(router)
 
-	// Swagger Documentation endpoints
-	// Serve swagger.json spec file
-	r.GET("/swagger/swagger.json", func(c *gin.Context) {
-		// This endpoint serves the Swagger/OpenAPI spec
+	// Setup Swagger endpoints
+	setupSwaggerEndpoints(router)
+
+	fmt.Println("✅ Router configured")
+
+	app.Router = router
+	app.Handler = h
+
+	return app, nil
+}
+
+// Cleanup gracefully closes all resources
+func (app *Application) Cleanup() error {
+	fmt.Println("\n🧹 Cleaning up resources...")
+	
+	if app.Redis != nil {
+		if err := app.Redis.Close(); err != nil {
+			fmt.Printf("⚠️  Warning: Redis cleanup error: %v\n", err)
+		}
+	}
+	
+	if app.DB != nil {
+		if err := app.DB.Close(); err != nil {
+			fmt.Printf("⚠️  Warning: Database cleanup error: %v\n", err)
+		}
+	}
+	
+	fmt.Println("✅ Cleanup completed")
+	return nil
+}
+
+// setupSwaggerEndpoints configures Swagger documentation endpoints
+func setupSwaggerEndpoints(router *gin.Engine) {
+	router.GET("/swagger/swagger.json", func(c *gin.Context) {
 		c.File("./docs/swagger.json")
 	})
 
-	// Serve Swagger UI HTML page
-	r.GET("/swagger/docs", func(c *gin.Context) {
-		// Swagger UI HTML page - standard layout
+	router.GET("/swagger/docs", func(c *gin.Context) {
 		html := `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -148,7 +217,6 @@ func main() {
                 ],
                 layout: "BaseLayout",
                 requestInterceptor: (request) => {
-                    // Auto-add Bearer prefix to Authorization header
                     if (request.headers.Authorization && !request.headers.Authorization.startsWith('Bearer ')) {
                         request.headers.Authorization = 'Bearer ' + request.headers.Authorization;
                     }
@@ -162,11 +230,79 @@ func main() {
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.String(200, html)
 	})
+}
 
-	// ---------------------------
-	// Start Server
-	// ---------------------------
-	log.Println("Server PT. Jalur Berlian berjalan di port :8080")
-	log.Println("📚 Swagger UI: http://localhost:8080/swagger/docs")
-	r.Run(":8080")
+func main() {
+	separator := strings.Repeat("=", 60)
+	fmt.Println("\n" + separator)
+	fmt.Println("🚀 PT. Jalur Berlian Fleet Management API")
+	fmt.Println(separator)
+
+	// Load configuration
+	fmt.Println("\n📋 Loading configuration...")
+	cfg, err := LoadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Configuration error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\n📝 Required environment variables:\n")
+		fmt.Fprintf(os.Stderr, "  - DB_SOURCE: postgres://user:password@host:port/dbname?sslmode=disable\n")
+		fmt.Fprintf(os.Stderr, "  - REDIS_ADDR: host:port (e.g., localhost:6379)\n")
+		fmt.Fprintf(os.Stderr, "  - JWT_SECRET: (generate with: openssl rand -hex 32)\n")
+		os.Exit(1)
+	}
+	fmt.Println("✅ Configuration loaded")
+
+	// Initialize application
+	fmt.Println("\n⚙️  Initializing application...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	app, err := InitializeApplication(ctx, cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Initialization error: %v\n", err)
+		os.Exit(1)
+	}
+	defer app.Cleanup()
+
+	fmt.Println("\n✅ Application initialized successfully")
+
+	// Start HTTP server
+	fmt.Printf("\n🌐 Starting server on http://localhost:%s\n", cfg.Port)
+	fmt.Println("📚 Swagger UI: http://localhost:" + cfg.Port + "/swagger/docs")
+	fmt.Println(separator + "\n")
+
+	// Create HTTP server
+	srv := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      app.Router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "❌ Server error: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Graceful shutdown: Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-sigChan
+	fmt.Printf("\n🛑 Received signal: %v\n", sig)
+
+	// Graceful shutdown with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	fmt.Println("\n⏳ Shutting down server gracefully...")
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Shutdown error: %v\n", err)
+	}
+
+	fmt.Println("✅ Server stopped gracefully")
+	fmt.Println(separator)
 }
