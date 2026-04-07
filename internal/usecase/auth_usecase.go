@@ -97,20 +97,33 @@ func (u *AuthUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 	}, nil
 }
 
-// Register menangani registrasi user baru (public endpoint - tidak perlu JWT).
+// AdminSetup menangani pembuatan admin user pertama kali (one-time setup).
+// Endpoint ini hanya bisa dijalankan sekali - setelah ada admin, harus pakai POST /admin/users.
 // Flow:
-// 1. Validasi input (username, password, role)
-// 2. Hash password dengan bcrypt
-// 3. Simpan user ke database dengan role 'customer' (user tidak bisa request admin)
-// 4. Generate JWT token agar langsung bisa login
-// Returns: RegisterResponse atau error jika validation/db gagal.
-func (u *AuthUsecase) Register(ctx context.Context, req *model.RegisterRequest) (*model.RegisterResponse, error) {
-	// 1. VALIDATE: Username wajib diisi dan non-empty
+// 1. Cek apakah sudah ada admin user di sistem
+// 2. Jika sudah ada, return error (endpoint sudah disabled secara logic)
+// 3. Jika belum ada, validasi input (username, password)
+// 4. Hash password dengan bcrypt
+// 5. Simpan admin user pertama
+// 6. Generate JWT token dan return (langsung bisa login)
+// Returns: LoginResponse (token + user info) atau error jika admin sudah ada atau validation gagal.
+func (u *AuthUsecase) AdminSetup(ctx context.Context, req *model.AdminSetupRequest) (*model.LoginResponse, error) {
+	// 1. CHECK EXISTENCE: Cek apakah sudah ada admin user
+	adminExists, err := u.userRepo.AdminExists(ctx)
+	if err != nil {
+		return nil, errors.New("database error while checking admin existence")
+	}
+	if adminExists {
+		// Admin sudah ada - endpoint tidak bisa dijalankan lagi
+		return nil, errors.New("admin user already exists")
+	}
+
+	// 2. VALIDATE: Username wajib diisi dan non-empty
 	if req.Username == "" {
 		return nil, errors.New("username required")
 	}
 
-	// 2. VALIDATE: Password wajib diisi dan minimal 6 karakter
+	// 3. VALIDATE: Password wajib diisi dan minimal 6 karakter
 	if req.Password == "" {
 		return nil, errors.New("password required")
 	}
@@ -118,42 +131,37 @@ func (u *AuthUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 		return nil, errors.New("password must be at least 6 characters")
 	}
 
-	// 3. CHECK DUPLICATE: Cek username sudah ada atau belum
+	// 4. CHECK DUPLICATE: Cek username sudah ada atau belum
 	existingUser, err := u.userRepo.GetByUsername(ctx, req.Username)
 	if err == nil && existingUser != nil {
-		// Username sudah ada
 		return nil, errors.New("username already exists")
 	}
 
-	// 4. HASH PASSWORD: Generate bcrypt hash
+	// 5. HASH PASSWORD: Generate bcrypt hash
 	passwordHash, err := HashPassword(req.Password)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 5. SET ROLE: User registrasi SELALU mendapat role 'customer' (tidak bisa request admin)
-	// Hanya admin yang bisa membuat user dengan role admin (via POST /admin/users)
-	userRole := "customer"
-
-	// 6. CREATE USER: Simpan user baru ke database
-	newUser := &model.User{
+	// 6. CREATE ADMIN USER WITH ROLE 'admin'
+	newAdmin := &model.User{
 		Username:     req.Username,
 		PasswordHash: passwordHash,
-		Role:         userRole,
+		Role:         "admin", // Hard-coded: always create admin role
 		IsActive:     true,
 	}
 
-	err = u.userRepo.Create(ctx, newUser)
+	err = u.userRepo.Create(ctx, newAdmin)
 	if err != nil {
-		return nil, errors.New("failed to create user")
+		return nil, errors.New("failed to create admin user")
 	}
 
-	// 7. GENERATE TOKEN: Buat JWT token agar user langsung bisa login
+	// 7. GENERATE TOKEN: Buat JWT token agar admin langsung bisa login
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &middleware.Claims{
-		UserID:   newUser.ID,
-		Username: newUser.Username,
-		Role:     newUser.Role,
+		UserID:   newAdmin.ID,
+		Username: newAdmin.Username,
+		Role:     newAdmin.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -167,77 +175,15 @@ func (u *AuthUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	}
 
 	// 8. RESPONSE: Return token dan user info
-	return &model.RegisterResponse{
+	return &model.LoginResponse{
 		Token:     tokenString,
 		ExpiresAt: expirationTime.Unix(),
 		User: model.User{
-			ID:       newUser.ID,
-			Username: newUser.Username,
-			Role:     newUser.Role,
+			ID:       newAdmin.ID,
+			Username: newAdmin.Username,
+			Role:     newAdmin.Role,
+			IsActive: newAdmin.IsActive,
 		},
-	}, nil
-}
-
-// CreateUser menangani pembuatan user baru oleh admin (admin-protected endpoint).
-// Flow:
-// 1. Validasi input (username, password, role)
-// 2. Validasi role adalah 'admin' atau 'customer'
-// 3. Hash password dengan bcrypt
-// 4. Simpan user ke database
-// 5. Return user info (tidak return token - admin yang beri password ke user)
-// Returns: User model atau error jika validation/db gagal.
-func (u *AuthUsecase) CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
-	// 1. VALIDATE: Username wajib diisi dan non-empty
-	if req.Username == "" {
-		return nil, errors.New("username required")
-	}
-
-	// 2. VALIDATE: Password wajib diisi dan minimal 6 karakter
-	if req.Password == "" {
-		return nil, errors.New("password required")
-	}
-	if len(req.Password) < 6 {
-		return nil, errors.New("password must be at least 6 characters")
-	}
-
-	// 3. VALIDATE ROLE: Role harus salah satu dari 'admin' atau 'customer'
-	if req.Role != "admin" && req.Role != "customer" {
-		return nil, errors.New("role must be 'admin' or 'customer'")
-	}
-
-	// 4. CHECK DUPLICATE: Cek username sudah ada atau belum
-	existingUser, err := u.userRepo.GetByUsername(ctx, req.Username)
-	if err == nil && existingUser != nil {
-		// Username sudah ada
-		return nil, errors.New("username already exists")
-	}
-
-	// 5. HASH PASSWORD: Generate bcrypt hash
-	passwordHash, err := HashPassword(req.Password)
-	if err != nil {
-		return nil, errors.New("failed to hash password")
-	}
-
-	// 6. CREATE USER: Simpan user baru ke database dengan role yang dipilih admin
-	newUser := &model.User{
-		Username:     req.Username,
-		PasswordHash: passwordHash,
-		Role:         req.Role,
-		IsActive:     req.IsActive,
-	}
-
-	err = u.userRepo.Create(ctx, newUser)
-	if err != nil {
-		return nil, errors.New("failed to create user")
-	}
-
-	// 7. RESPONSE: Return user info tanpa password hash
-	// Client (admin) akan memberi username+password ke user via secure channel
-	return &model.User{
-		ID:       newUser.ID,
-		Username: newUser.Username,
-		Role:     newUser.Role,
-		IsActive: newUser.IsActive,
 	}, nil
 }
 

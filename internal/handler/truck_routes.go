@@ -16,13 +16,13 @@ import (
 // - POST /admin/trucks - Buat armada baru
 // - GET /admin/trucks - List armada (dengan pagination)
 // - GET /admin/trucks/:id - Detail armada
-// - PUT /admin/trucks/:id - Update armada
+// - PATCH /admin/trucks/:id - Update armada (partial update)
 // - DELETE /admin/trucks/:id - Deaktifkan armada
 func (h *Handler) RegisterTruckRoutes(r *gin.RouterGroup) {
 	r.POST("/admin/trucks", h.CreateTruck)
 	r.GET("/admin/trucks", h.ListTrucks)
 	r.GET("/admin/trucks/:id", h.GetTruck)
-	r.PUT("/admin/trucks/:id", h.UpdateTruck)
+	r.PATCH("/admin/trucks/:id", h.UpdateTruck)
 	r.DELETE("/admin/trucks/:id", h.DeleteTruck)
 }
 
@@ -123,18 +123,19 @@ func (h *Handler) GetTruck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": truck})
 }
 
-// UpdateTruck mengupdate informasi armada.
-// @Summary Update truck information
-// @Description Update truck details
+// UpdateTruck mengupdate informasi armada (PATCH - partial update).
+// @Summary Partially update truck information
+// @Description Update truck details with PATCH support. Only provide fields you want to update (all fields are optional). plate_number and driver_name cannot be emptied - must remain non-empty after update.
 // @Tags Trucks
 // @Accept json
 // @Produce json
 // @Param id path int true "Truck ID"
-// @Param truck body model.Truck true "Updated truck details"
-// @Success 200 {object} map[string]interface{} "Truck updated"
-// @Failure 400 {object} map[string]string "Invalid input"
+// @Param truck body model.UpdateTruckRequest true "Truck fields to update (only include fields you want to change)"
+// @Success 200 {object} map[string]interface{} "Truck updated successfully with actual data from database"
+// @Failure 400 {object} map[string]string "Invalid input or validation error"
 // @Failure 404 {object} map[string]string "Truck not found"
-// @Router /admin/trucks/{id} [put]
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /admin/trucks/{id} [patch]
 // @Security Bearer
 func (h *Handler) UpdateTruck(c *gin.Context) {
 	idStr := c.Param("id")
@@ -144,7 +145,7 @@ func (h *Handler) UpdateTruck(c *gin.Context) {
 		return
 	}
 
-	var input model.Truck
+	var input model.UpdateTruckRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
 		return
@@ -162,9 +163,16 @@ func (h *Handler) UpdateTruck(c *gin.Context) {
 		return
 	}
 
+	// Fetch the updated truck from database to return actual data
+	updatedTruck, err := h.TruckUsecase.GetByID(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated truck"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Armada berhasil diupdate",
-		"data":    input,
+		"data":    updatedTruck,
 	})
 }
 

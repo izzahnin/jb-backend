@@ -37,24 +37,18 @@ type LoginResponse struct {
 	User      User   `json:"user"`       // User yang login (untuk UI)
 }
 
-// RegisterRequest adalah payload dari POST /auth/register (public user registration)
-type RegisterRequest struct {
-	Username string `json:"username" binding:"required"`    // Username (wajib, unique)
-	Password string `json:"password" binding:"required"`    // Password plain text (minimal 6 char)
-	Role     string `json:"role"`                            // 'customer' (default), can request 'admin'
-}
-
-// RegisterResponse adalah respon sukses setelah registrasi
-type RegisterResponse struct {
-	Token     string `json:"token"`      // JWT token untuk langsung bisa login
-	ExpiresAt int64  `json:"expires_at"` // Unix timestamp kapan token expired
-	User      User   `json:"user"`       // User yang baru dibuat
-}
-
 // CreateUserRequest adalah payload dari POST /admin/users (admin membuat user)
 type CreateUserRequest struct {
 	Username string `json:"username" binding:"required"` // Username (wajib, unique)
 	Password string `json:"password" binding:"required"` // Password plain text
 	Role     string `json:"role" binding:"required"`     // 'admin' atau 'customer' (admin pilih)
-	IsActive bool   `json:"is_active"`                    // Default: true
+	IsActive *bool  `json:"is_active"`                    // Pointer untuk default true jika tidak dikirim
+}
+
+// AdminSetupRequest adalah payload dari POST /admin/setup (initialize admin pertama kali)
+// Endpoint ini hanya bisa dijalankan sekali (one-time setup).
+// Setelah admin pertama dibuat, gunakan POST /admin/users untuk user admin lainnya.
+type AdminSetupRequest struct {
+	Username string `json:"username" binding:"required"` // Admin username (wajib, unique)
+	Password string `json:"password" binding:"required"` // Admin password plain text (minimal 6 char)
 }

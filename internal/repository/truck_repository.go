@@ -78,12 +78,12 @@ func (r *TruckRepository) GetByID(ctx context.Context, id int) (*model.Truck, er
 	return t, nil
 }
 
-// Update mengubah informasi truck (driver_name, is_active) berdasarkan ID.
-// Melakukan UPDATE ke tabel trucks dengan WHERE id = $2.
+// Update mengubah informasi truck (plate_number, driver_name, is_active) berdasarkan ID.
+// Melakukan UPDATE ke tabel trucks dengan WHERE id = $4.
 // Returns: error jika truck tidak ditemukan atau query gagal.
 func (r *TruckRepository) Update(ctx context.Context, id int, t *model.Truck) error {
-	query := `UPDATE trucks SET driver_name = $1, is_active = $2 WHERE id = $3`
-	_, err := r.db.ExecContext(ctx, query, t.DriverName, t.IsActive, id)
+	query := `UPDATE trucks SET plate_number = $1, driver_name = $2, is_active = $3 WHERE id = $4`
+	_, err := r.db.ExecContext(ctx, query, t.PlateNumber, t.DriverName, t.IsActive, id)
 	return err
 }
 

@@ -21,42 +21,6 @@ Complete documentation for all 21 endpoints in the Jalur Berlian Backend system.
 
 ## 🔐 Authentication
 
-### POST /auth/register
-Register a new admin user.
-
-**Authorization**: Public (no token required)
-
-**Request Body**:
-```json
-{
-  "username": "admin",
-  "password": "securepassword123"
-}
-```
-
-**Response (200 OK)**:
-```json
-{
-  "id": 1,
-  "username": "admin",
-  "created_at": "2026-03-16T13:30:00Z"
-}
-```
-
-**Response (400 Bad Request)**:
-```json
-{
-  "error": "username already exists"
-}
-```
-
-**Status Codes**:
-- `200` - Registration successful
-- `400` - Invalid input or user already exists
-- `500` - Server error
-
----
-
 ### POST /auth/login
 Authenticate and get JWT token.
 
@@ -127,10 +91,65 @@ Logout user (invalidates session).
 
 ---
 
+### POST /admin/setup
+Initialize the first admin user in the system (one-time setup endpoint).
+
+**Authorization**: Public (no token required - only works if no admin exists)
+
+**Request Body**:
+```json
+{
+  "username": "admin",
+  "password": "securepassword123"
+}
+```
+
+**Response (201 Created)**:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_at": 1710604800,
+  "user": {
+    "id": 1,
+    "username": "admin",
+    "role": "admin",
+    "is_active": true,
+    "created_at": "2026-03-16T13:30:00Z"
+  }
+}
+```
+
+**Response (409 Conflict)**:
+```json
+{
+  "error": "admin user already exists"
+}
+```
+
+**Response (400 Bad Request)**:
+```json
+{
+  "error": "password must be at least 6 characters"
+}
+```
+
+**Status Codes**:
+- `201` - Admin created successfully (token returned)
+- `400` - Invalid input (username/password validation failed)
+- `409` - Admin already exists (endpoint already used)
+- `500` - Server error
+
+**Notes**:
+- This endpoint can only be called ONCE to bootstrap the system
+- After the first admin is created, use POST /admin/users to create additional admins
+- Returns JWT token for immediate login (24-hour expiry)
+
+---
+
 ## 👥 Admin - User Management
 
 ### POST /admin/users
-Create a new admin user (admin-only).
+Create a new admin or customer user (admin-only).
 
 **Authorization**: Required (Bearer token, admin role)
 
@@ -138,23 +157,30 @@ Create a new admin user (admin-only).
 ```json
 {
   "username": "newadmin",
-  "password": "strongpassword456"
+  "password": "strongpassword456",
+  "role": "admin",
+  "is_active": true
 }
 ```
 
 **Response (201 Created)**:
 ```json
 {
-  "id": 2,
-  "username": "newadmin",
-  "created_at": "2026-03-16T14:15:00Z"
+  "message": "User berhasil dibuat",
+  "data": {
+    "id": 2,
+    "username": "newadmin",
+    "role": "admin",
+    "is_active": true,
+    "created_at": "2026-03-16T14:15:00Z"
+  }
 }
 ```
 
 **Response (400 Bad Request)**:
 ```json
 {
-  "error": "username already in use"
+  "error": "username already exists"
 }
 ```
 
@@ -162,7 +188,70 @@ Create a new admin user (admin-only).
 - `201` - User created
 - `400` - Invalid input or duplicate username
 - `401` - Unauthorized
+- `409` - Username conflict
 - `500` - Server error
+
+**Notes**:
+- `is_active` defaults to `true` if not provided
+- `role` must be either `"admin"` or `"customer"`
+- Password must be at least 6 characters
+- Token with admin role is required
+
+---
+
+### GET /admin/users
+List all users in the system (admin-only).
+
+**Authorization**: Required (Bearer token, admin role)
+
+**Response (200 OK)**:
+```json
+{
+  "message": "Users retrieved successfully",
+  "count": 3,
+  "data": [
+    {
+      "id": 1,
+      "username": "admin",
+      "role": "admin",
+      "is_active": true,
+      "created_at": "2026-03-16T13:30:00Z"
+    },
+    {
+      "id": 2,
+      "username": "driver1",
+      "role": "customer",
+      "is_active": true,
+      "created_at": "2026-03-16T14:00:00Z"
+    },
+    {
+      "id": 3,
+      "username": "admin2",
+      "role": "admin",
+      "is_active": true,
+      "created_at": "2026-03-16T14:15:00Z"
+    }
+  ]
+}
+```
+
+**Response (401 Unauthorized)**:
+```json
+{
+  "error": "Unauthorized or admin role required"
+}
+```
+
+**Status Codes**:
+- `200` - Success
+- `401` - Unauthorized or insufficient permissions
+- `500` - Server error
+
+**Notes**:
+- Only accessible to admin users
+- Password hashes are not exposed
+- Returns users sorted by creation date (newest first)
+- Use this to audit all system users and their roles
 
 ---
 
@@ -288,39 +377,78 @@ Get details of a specific truck.
 
 ---
 
-### PUT /admin/trucks/:id
-Update truck information.
+### PATCH /admin/trucks/:id
+Partially update truck information (PATCH semantics - only update provided fields).
 
 **Authorization**: Required (Bearer token)
 
 **Path Parameters**:
 - `id` (integer) - Truck ID
 
-**Request Body** (all fields optional):
+**Request Body** (all fields optional - only include fields to update):
 ```json
 {
+  "plate_number": "AB1234XY",
   "driver_name": "Sudarnawan",
-  "status": "inactive"
+  "is_active": true
+}
+```
+
+**Examples of Partial Updates**:
+
+*Update only driver name*:
+```json
+{
+  "driver_name": "Budi Santoso"
+}
+```
+
+*Update only plate number*:
+```json
+{
+  "plate_number": "CD5678EF"
+}
+```
+
+*Deactivate truck*:
+```json
+{
+  "is_active": false
 }
 ```
 
 **Response (200 OK)**:
 ```json
 {
-  "id": 1,
-  "plate_number": "AB1234CD",
-  "driver_name": "Sudarnawan",
-  "status": "inactive",
-  "updated_at": "2026-03-16T15:45:00Z"
+  "message": "Armada berhasil diupdate",
+  "data": {
+    "id": 1,
+    "plate_number": "AB1234CD",
+    "driver_name": "Sudarnawan",
+    "is_active": true
+  }
+}
+```
+
+**Response (400 Bad Request - validation error)**:
+```json
+{
+  "error": "plate_number cannot be empty"
 }
 ```
 
 **Status Codes**:
-- `200` - Updated successfully
-- `400` - Invalid input
-- `401` - Unauthorized
+- `200` - Updated successfully (returns actual data from database)
+- `400` - Invalid input or validation error
+- `401` - Unauthorized (missing/invalid token)
 - `404` - Truck not found
 - `500` - Server error
+
+**Notes**:
+- All fields are optional - only include the fields you want to update
+- `plate_number` and `driver_name` cannot be emptied (validation will fail if attempt to empty them)
+- Response always returns the complete truck object from database (not just the updated fields)
+- If field is not provided in request, it will not be modified
 
 ---
 
@@ -910,16 +1038,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 
 ### Getting a Token
 
-1. **Register** (if new user):
+**First Time Setup (bootstrap system)**:
+1. Call `POST /admin/setup` to create the first admin:
    ```bash
-   POST /auth/register
+   POST /admin/setup
    {
      "username": "admin",
      "password": "password123"
    }
    ```
+   Response includes JWT token for immediate login
 
-2. **Login**:
+**Subsequent Logins**:
+1. Use `POST /auth/login` with credentials:
    ```bash
    POST /auth/login
    {
@@ -928,7 +1059,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
    }
    ```
 
-3. **Extract token from response** and use in all protected endpoints
+3. Extract token from response and use in all protected endpoints
 
 ---
 
@@ -937,15 +1068,15 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 ### Example 1: Complete Order Lifecycle
 
 ```bash
-# 1. Register Admin
-POST /auth/register
+# 1. Setup Admin (FIRST TIME ONLY - bootstrap system)
+POST /admin/setup
 {
   "username": "admin",
   "password": "pass123"
 }
-# Response: token = abc123xyz
+# Response: token = abc123xyz, user role = admin
 
-# 2. Login
+# 2. Login (subsequent times)
 POST /auth/login
 {
   "username": "admin",
@@ -953,7 +1084,23 @@ POST /auth/login
 }
 # Response: token = abc123xyz
 
-# 3. Create Truck
+# 3. List all users (admin audit)
+GET /admin/users
+Headers: Authorization: Bearer abc123xyz
+# Response: All users with username, role, is_active
+
+# 4. Create another admin or driver
+POST /admin/users
+Headers: Authorization: Bearer abc123xyz
+{
+  "username": "driver1",
+  "password": "pass123",
+  "role": "customer",
+  "is_active": true
+}
+# Response: user_id = 2
+
+# 5. Create Truck
 POST /admin/trucks
 Headers: Authorization: Bearer abc123xyz
 {
@@ -962,7 +1109,7 @@ Headers: Authorization: Bearer abc123xyz
 }
 # Response: truck_id = 1
 
-# 4. Create Order
+# 6. Create Order
 POST /admin/orders
 Headers: Authorization: Bearer abc123xyz
 {
@@ -972,7 +1119,7 @@ Headers: Authorization: Bearer abc123xyz
 }
 # Response: order_id = 1, status = pending
 
-# 5. Assign Truck to Order
+# 7. Assign Truck to Order
 POST /admin/orders/1/assign
 Headers: Authorization: Bearer abc123xyz
 {
@@ -980,12 +1127,12 @@ Headers: Authorization: Bearer abc123xyz
 }
 # Response: order status still pending, truck assigned
 
-# 6. Confirm Pickup
+# 8. Confirm Pickup
 PUT /admin/orders/1/confirm-pickup
 Headers: Authorization: Bearer abc123xyz
 # Response: status = pickup
 
-# 7. Record Location (by IoT device, public)
+# 9. Record Location (by IoT device, public)
 POST /locations
 {
   "truck_id": 1,
@@ -993,12 +1140,12 @@ POST /locations
   "longitude": 120.4317
 }
 
-# 8. Confirm Delivery
+# 10. Confirm Delivery
 PUT /admin/orders/1/confirm-delivery
 Headers: Authorization: Bearer abc123xyz
 # Response: status = delivered
 
-# 9. Customer Tracks Order (public)
+# 11. Customer Tracks Order (public)
 GET /orders/ORD001/track
 # Response: Complete order details with latest location
 ```
@@ -1034,7 +1181,16 @@ GET /admin/orders - see all assignments
 
 ---
 
-Last Updated: 2026-03-16 | Version: 1.0.0
+Last Updated: 2026-03-30 | Version: 1.2.0
+
+**Changes in v1.2.0**:
+- Removed `POST /auth/register` endpoint (not needed for this project)
+- Kept `POST /admin/setup` - One-time admin initialization (bootstrap)
+- Kept `/auth/login` & `/auth/logout` - Admin authentication
+- Kept `POST /admin/users` - Create additional admins/users
+- Kept `GET /admin/users` - Audit all users and their roles
+- Optional Users Auth: Only admin needs login via /auth/login after initial setup
+- Public Users: No authentication needed for `GET /orders/:order_number/track`
 
 For setup instructions, see [SETUP.md](SETUP.md)  
 For development guide, see [DEVELOPMENT.md](DEVELOPMENT.md)

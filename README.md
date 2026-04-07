@@ -91,7 +91,7 @@ Request → Handler → Usecase → Repository → Model → Database/Cache
 - `POST /admin/trucks` - Register new truck
 - `GET /admin/trucks` - List all trucks with pagination
 - `GET /admin/trucks/:id` - Get single truck
-- `PUT /admin/trucks/:id` - Update truck details
+- `PATCH /admin/trucks/:id` - Partially update truck details (PATCH for partial updates)
 - `DELETE /admin/trucks/:id` - Deactivate truck
 
 **Order Management**

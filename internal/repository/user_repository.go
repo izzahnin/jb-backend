@@ -58,3 +58,27 @@ func (r *UserRepository) GetByID(ctx context.Context, id int) (*model.User, erro
 	}
 	return u, nil
 }
+
+// AdminExists mengecek apakah sudah ada admin user di sistem.
+// Digunakan untuk endpoint /admin/setup agar hanya bisa dijalankan sekali.
+// Returns: true jika ada minimal 1 admin user, false jika belum ada.
+func (r *UserRepository) AdminExists(ctx context.Context) (bool, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM users WHERE role = 'admin'`
+	if err := r.db.GetContext(ctx, &count, query); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// GetAll mengambil semua user dari database.
+// Digunakan untuk admin melihat daftar semua users.
+// Returns: slice of User objects atau error jika database error.
+func (r *UserRepository) GetAll(ctx context.Context) ([]*model.User, error) {
+	var users []*model.User
+	query := `SELECT id, username, password_hash, role, is_active, created_at FROM users ORDER BY created_at DESC`
+	if err := r.db.SelectContext(ctx, &users, query); err != nil {
+		return nil, err
+	}
+	return users, nil
+}

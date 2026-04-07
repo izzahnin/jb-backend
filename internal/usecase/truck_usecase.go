@@ -48,21 +48,47 @@ func (u *TruckUsecase) GetByID(ctx context.Context, id int) (*model.Truck, error
 	return u.repo.GetByID(ctx, id)
 }
 
-// Update mengubah informasi truck (driver_name, is_active) berdasarkan ID.
-// Melakukan validasi: ID harus > 0, driver_name tidak boleh kosong.
+// Update mengubah informasi truck (plate_number, driver_name, is_active) berdasarkan ID.
+// Mendukung partial updates - hanya field yang disediakan yang akan diupdate.
+// Validasi: ID harus > 0. Setelah merge, plate_number dan driver_name tidak boleh kosong.
 // Returns: error jika validasi gagal atau database error.
-func (u *TruckUsecase) Update(ctx context.Context, id int, t *model.Truck) error {
+func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruckRequest) error {
 	// Validasi: truck id harus valid
 	if id <= 0 {
 		return ErrTruckInvalidID
 	}
 
-	// Validasi: driver_name tidak boleh kosong
-	if t.DriverName == "" {
+	// Fetch current truck data
+	existing, err := u.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Merge updates: hanya update field yang diisi (pointer tidak nil)
+	// plate_number: update hanya jika pointer diisi
+	if req.PlateNumber != nil {
+		existing.PlateNumber = *req.PlateNumber
+	}
+
+	// driver_name: update hanya jika pointer diisi
+	if req.DriverName != nil {
+		existing.DriverName = *req.DriverName
+	}
+
+	// is_active: update hanya jika pointer diisi
+	if req.IsActive != nil {
+		existing.IsActive = *req.IsActive
+	}
+
+	// Final validation: pastikan setelah merge, kedua field required tidak kosong
+	if existing.PlateNumber == "" {
+		return ErrTruckPlateRequired
+	}
+	if existing.DriverName == "" {
 		return ErrTruckDriverRequired
 	}
 
-	return u.repo.Update(ctx, id, t)
+	return u.repo.Update(ctx, id, existing)
 }
 
 // Deactivate melakukan soft delete truck dengan mengeset is_active = false.

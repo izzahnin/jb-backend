@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/izzahnin/jalur-berlian-backend/docs"
 	"github.com/izzahnin/jalur-berlian-backend/internal/handler"
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
 	"github.com/izzahnin/jalur-berlian-backend/internal/usecase"
 	"github.com/izzahnin/jalur-berlian-backend/pkg/database"
+	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 )
 
 // @title Jalur Berlian Fleet Management API
@@ -57,6 +58,24 @@ type Application struct {
 	Redis     *database.RedisClient
 	Router    *gin.Engine
 	Handler   *handler.Handler
+}
+
+// loadEnvFiles loads environment variables from .env files
+// Priority: .env.local (secrets) > .env (template)
+// Useful for: go run, local development, testing
+// Note: Docker-compose loads this automatically
+func loadEnvFiles() {
+	// Try .env.local first (highest priority - secrets)
+	if err := godotenv.Load(".env.local"); err == nil {
+		fmt.Println("📄 Loaded .env.local")
+	}
+
+	// Then try .env (fallback - template)
+	if err := godotenv.Load(".env"); err == nil {
+		fmt.Println("📄 Loaded .env")
+	}
+
+	// If both fail, that's okay - env vars might be set by system/docker
 }
 
 // LoadConfig loads environment variables with validation
@@ -135,6 +154,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, truckRepo)
 	locationUsecase := usecase.NewLocationUsecase(locRepo)
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)
+	userUsecase := usecase.NewUserUsecase(userRepo)
 	fmt.Println("✅ Usecases initialized")
 
 	// Initialize Router (Presentation Layer)
@@ -145,7 +165,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	// Initialize Handler with all dependencies
 	h := handler.NewHandler(
 		truckRepo, orderRepo, locRepo, userRepo,
-		truckUsecase, orderUsecase, locationUsecase, authUsecase,
+		truckUsecase, orderUsecase, locationUsecase, authUsecase, userUsecase,
 		cfg.JWTSecret,
 	)
 
@@ -238,8 +258,12 @@ func main() {
 	fmt.Println("🚀 PT. Jalur Berlian Fleet Management API")
 	fmt.Println(separator)
 
+	// Load environment variables from .env files (for local development)
+	fmt.Println("\n📋 Loading environment files...")
+	loadEnvFiles()
+
 	// Load configuration
-	fmt.Println("\n📋 Loading configuration...")
+	fmt.Println("📋 Loading configuration...")
 	cfg, err := LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Configuration error: %v\n", err)

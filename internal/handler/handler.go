@@ -21,6 +21,7 @@ type Handler struct {
 	OrderUsecase    *usecase.OrderUsecase
 	LocationUsecase *usecase.LocationUsecase
 	AuthUsecase     *usecase.AuthUsecase
+	UserUsecase     *usecase.UserUsecase
 
 	// Config
 	JWTSecret string
@@ -36,6 +37,7 @@ func NewHandler(
 	orderUsecase *usecase.OrderUsecase,
 	locationUsecase *usecase.LocationUsecase,
 	authUsecase *usecase.AuthUsecase,
+	userUsecase *usecase.UserUsecase,
 	jwtSecret string,
 ) *Handler {
 	return &Handler{
@@ -47,6 +49,7 @@ func NewHandler(
 		OrderUsecase:    orderUsecase,
 		LocationUsecase: locationUsecase,
 		AuthUsecase:     authUsecase,
+		UserUsecase:     userUsecase,
 		JWTSecret:       jwtSecret,
 	}
 }

@@ -9,20 +9,20 @@ import (
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
 )
 
-// RegisterAuthRoutes mendaftarkan semua auth endpoints (public, no auth required).
+// RegisterAuthRoutes mendaftarkan semua auth endpoints.
 func (h *Handler) RegisterAuthRoutes(r *gin.Engine) {
 	// 1. POST /auth/login - Login endpoint untuk generate JWT token
 	r.POST("/auth/login", h.Login)
 
-	// 2. POST /auth/register - Register endpoint untuk user membuat akun baru
-	r.POST("/auth/register", h.Register)
+	// 2. POST /admin/setup - Initialize admin pertama kali (one-time setup)
+	r.POST("/admin/setup", h.AdminSetup)
 
 	// 3. POST /auth/logout - Logout endpoint (stateless JWT)
 	r.POST("/auth/logout", h.Logout)
 }
 
 // Login godoc
-// @Summary User login
+// @Summary User login 
 // @Description Login with username and password to get JWT token
 // @Tags Authentication
 // @Accept json
@@ -51,20 +51,20 @@ func (h *Handler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, loginResp)
 }
 
-// Register godoc
-// @Summary User registration
-// @Description Register new admin user with username and password
+// AdminSetup godoc
+// @Summary Initialize first admin user
+// @Description Create the first admin user in the system (one-time endpoint, auto-disabled after first use)
 // @Tags Authentication
 // @Accept json
 // @Produce json
-// @Param request body model.RegisterRequest true "Registration credentials"
-// @Success 201 {object} model.RegisterResponse "Registration successful"
+// @Param request body model.AdminSetupRequest true "Admin setup credentials"
+// @Success 201 {object} model.LoginResponse "Admin created successfully with JWT token"
 // @Failure 400 {object} map[string]string "Invalid request format"
-// @Failure 409 {object} map[string]string "Username already exists"
-// @Router /auth/register [post]
-func (h *Handler) Register(c *gin.Context) {
-	var registerReq model.RegisterRequest
-	if err := c.ShouldBindJSON(&registerReq); err != nil {
+// @Failure 409 {object} map[string]string "Admin already exists"
+// @Router /admin/setup [post]
+func (h *Handler) AdminSetup(c *gin.Context) {
+	var setupReq model.AdminSetupRequest
+	if err := c.ShouldBindJSON(&setupReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
 		return
 	}
@@ -72,17 +72,17 @@ func (h *Handler) Register(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	registerResp, err := h.AuthUsecase.Register(ctx, &registerReq)
+	loginResp, err := h.AuthUsecase.AdminSetup(ctx, &setupReq)
 	if err != nil {
-		if err.Error() == "username already exists" {
+		if err.Error() == "admin user already exists" {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, registerResp)
+	c.JSON(http.StatusCreated, loginResp)
 }
 
 // Logout godoc
