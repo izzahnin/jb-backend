@@ -7,44 +7,37 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/izzahnin/jalur-berlian-backend/internal/model"
 	"github.com/izzahnin/jalur-berlian-backend/internal/usecase"
 )
 
-// RegisterLocationRoutes mendaftarkan 3 endpoint tracking lokasi armada (public, no auth).
-// - POST /trucks/:id/location - Catat lokasi GPS armada
-// - GET /trucks/:id/location - Dapatkan lokasi terbaru armada
-// - GET /trucks/:id/locations - Dapatkan riwayat lokasi armada (limit=50)
-func (h *Handler) RegisterLocationRoutes(r *gin.Engine) {
-	r.POST("/trucks/:id/location", h.PostLocation)
-	r.GET("/trucks/:id/locations", h.GetLocationHistory)
-	r.GET("/trucks/:id/location", h.GetLatestLocation)
+// RegisterLocationRoutes registers trip-based tracking endpoints.
+func (h *Handler) RegisterLocationRoutes(r *gin.RouterGroup) {
+	r.POST("/trips/:id/location", h.PostLocation)
+	r.GET("/trips/:id/location", h.GetLatestLocation)
+	r.GET("/trips/:id/locations", h.GetLocationHistory)
 }
 
-// PostLocation mencatat posisi GPS armada ke Redis (geo-spatial data).
-// @Summary Record truck location
-// @Description Record GPS coordinates and timestamp for a specific truck for real-time tracking
+// PostLocation menyimpan GPS coordinate untuk trip real-time tracking.
+// @Summary Save trip location
+// @Description Save current GPS location for a trip. Accepts latitude, longitude, optional speed, and timestamp. Used for real-time vehicle tracking.
 // @Tags Locations
 // @Accept json
 // @Produce json
-// @Param id path int true "Truck ID"
-// @Param body body object true "Location data" example({"lat":-8.5,"lon":120.7,"ts":"2026-03-16T11:45:00Z"})
+// @Param id path int true "Trip ID"
+// @Param body body model.CreateLocationRequest true "Location data: lat (float64 required), lon (float64 required), speed (float64 optional), ts (RFC3339 string optional, defaults to now)"
 // @Success 200 {object} map[string]string "Location saved successfully"
-// @Failure 400 {object} map[string]string "Invalid truck ID or JSON format"
+// @Failure 400 {object} map[string]string "Bad request - invalid trip ID or invalid lat/lon coordinates"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /trucks/{id}/location [post]
+// @Router /trips/{id}/location [post]
 func (h *Handler) PostLocation(c *gin.Context) {
-	idStr := c.Param("id")
-	truckID, err := strconv.Atoi(idStr)
+	tripID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID truck tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": usecase.ErrLocationInvalidTripID.Error()})
 		return
 	}
 
-	var input struct {
-		Lat float64 `json:"lat"`
-		Lon float64 `json:"lon"`
-		Ts  string  `json:"ts"`
-	}
+	var input model.CreateLocationRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
 		return
@@ -60,56 +53,54 @@ func (h *Handler) PostLocation(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := h.LocationUsecase.SaveLocation(ctx, truckID, input.Lat, input.Lon, ts); err != nil {
-		if err == usecase.ErrLocationInvalidTruckID {
+	if err := h.LocationUsecase.SaveLocation(ctx, tripID, input.Lat, input.Lon, input.Speed, ts); err != nil {
+		switch err {
+		case usecase.ErrLocationInvalidTripID, usecase.ErrLocationInvalidCoords:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Lokasi berhasil disimpan"})
+	c.JSON(http.StatusOK, gin.H{"message": "Lokasi trip berhasil disimpan"})
 }
 
-// GetLocationHistory mengambil riwayat lokasi armada (terbatas default 50 entries).
-// @Summary Get truck location history
-// @Description Retrieve location history for a specific truck with pagination support
+// GetLocationHistory mengambil history lokasi dengan limit (default 50, max 500).
+// @Summary Get location history
+// @Description Retrieve the location history for a trip. Returns all saved GPS coordinates in descending order (latest first). Supports pagination via limit parameter.
 // @Tags Locations
 // @Accept json
 // @Produce json
-// @Param id path int true "Truck ID"
-// @Param limit query int false "Number of records (max 200)" default(50)
-// @Success 200 {object} object "Location history data"
-// @Failure 400 {object} map[string]string "Invalid truck ID"
-// @Failure 404 {object} map[string]string "Truck not found"
-// @Failure 500 {object} map[string]string "Internal server error"
-// @Router /trucks/{id}/locations [get]
+// @Param id path int true "Trip ID"
+// @Param limit query int false "Max number of locations to return (default 50, max 500)"
+// @Success 200 {object} map[string]interface{} "Array of location records with lat, lon, speed, timestamp"
+// @Failure 400 {object} map[string]string "Bad request - invalid trip ID format"
+// @Failure 500 {object} map[string]string "Internal server error - failed to retrieve location history"
+// @Router /trips/{id}/locations [get]
 func (h *Handler) GetLocationHistory(c *gin.Context) {
-	idStr := c.Param("id")
-	truckID, err := strconv.Atoi(idStr)
+	tripID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID truck tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": usecase.ErrLocationInvalidTripID.Error()})
 		return
 	}
 
-	limitStr := c.DefaultQuery("limit", "50")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 || limit > 200 {
-		limit = 50
+	limit := 50
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 && parsed <= 500 {
+			limit = parsed
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err = h.TruckUsecase.GetByID(ctx, truckID)
+	locations, err := h.LocationUsecase.GetHistory(ctx, tripID, limit)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Truck tidak ditemukan"})
-		return
-	}
-
-	locations, err := h.LocRepo.GetHistory(ctx, truckID, limit)
-	if err != nil {
+		if err == usecase.ErrLocationInvalidTripID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil history lokasi"})
 		return
 	}
@@ -117,38 +108,39 @@ func (h *Handler) GetLocationHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": locations})
 }
 
-// GetLatestLocation mengambil lokasi terbaru armada (real-time position).
-// @Summary Get latest truck location
-// @Description Retrieve the most recent location data for a specific truck in real-time
+// GetLatestLocation mengambil lokasi terbaru untuk trip.
+// @Summary Get latest location
+// @Description Retrieve the most recent GPS location for a trip. Returns the latest coordinate point recorded.
 // @Tags Locations
 // @Accept json
 // @Produce json
-// @Param id path int true "Truck ID"
-// @Success 200 {object} object "Latest location data"
-// @Failure 400 {object} map[string]string "Invalid truck ID"
-// @Failure 404 {object} map[string]string "Truck or location not found"
-// @Failure 500 {object} map[string]string "Internal server error"
-// @Router /trucks/{id}/location [get]
+// @Param id path int true "Trip ID"
+// @Success 200 {object} map[string]interface{} "Latest location record with lat, lon, speed, timestamp"
+// @Failure 400 {object} map[string]string "Bad request - invalid trip ID format"
+// @Failure 404 {object} map[string]string "Not found - no location recorded for this trip"
+// @Failure 500 {object} map[string]string "Internal server error - failed to retrieve latest location"
+// @Router /trips/{id}/location [get]
 func (h *Handler) GetLatestLocation(c *gin.Context) {
-	idStr := c.Param("id")
-	truckID, err := strconv.Atoi(idStr)
+	tripID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID truck tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": usecase.ErrLocationInvalidTripID.Error()})
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err = h.TruckUsecase.GetByID(ctx, truckID)
+	location, err := h.LocationUsecase.GetLatest(ctx, tripID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Truck tidak ditemukan"})
+		if err == usecase.ErrLocationInvalidTripID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil lokasi terbaru"})
 		return
 	}
-
-	location, err := h.LocRepo.GetLatestLocation(ctx, truckID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Lokasi truck tidak ditemukan"})
+	if location == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Lokasi trip tidak ditemukan"})
 		return
 	}
 

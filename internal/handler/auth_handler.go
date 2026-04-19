@@ -9,28 +9,30 @@ import (
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
 )
 
-// RegisterAuthRoutes mendaftarkan semua auth endpoints.
+// RegisterAuthRoutes mendaftarkan authentication endpoints (public - no auth required).
+// POST /auth/login   - Login endpoint untuk generate JWT token
+// POST /auth/logout  - Logout endpoint (stateless JWT)
 func (h *Handler) RegisterAuthRoutes(r *gin.Engine) {
-	// 1. POST /auth/login - Login endpoint untuk generate JWT token
 	r.POST("/auth/login", h.Login)
-
-	// 2. POST /admin/setup - Initialize admin pertama kali (one-time setup)
-	r.POST("/admin/setup", h.AdminSetup)
-
-	// 3. POST /auth/logout - Logout endpoint (stateless JWT)
 	r.POST("/auth/logout", h.Logout)
 }
 
+// RegisterSetupRoutes mendaftarkan initial setup endpoint (public - one-time only).
+// POST /admin/setup - Create first super_admin account
+func (h *Handler) RegisterSetupRoutes(r *gin.Engine) {
+	r.POST("/admin/setup", h.AdminSetup)
+}
+
 // Login godoc
-// @Summary User login 
-// @Description Login with username and password to get JWT token
+// @Summary User login - Get JWT token
+// @Description Login with username and password to receive JWT token. Token is valid for 24 hours. Use token in Authorization: Bearer header for subsequent requests.
 // @Tags Authentication
 // @Accept json
 // @Produce json
-// @Param request body model.LoginRequest true "Login credentials"
-// @Success 200 {object} model.LoginResponse "Login successful with JWT token"
-// @Failure 400 {object} map[string]string "Invalid request format"
-// @Failure 401 {object} map[string]string "Invalid credentials"
+// @Param request body model.LoginRequest true "Login credentials: username (required), password (required)"
+// @Success 200 {object} model.LoginResponse "Login successful - returns token, expires_at timestamp, and user object"
+// @Failure 400 {object} map[string]string "Bad request - invalid request format or missing username/password"
+// @Failure 401 {object} map[string]string "Unauthorized - invalid username or password, or user inactive"
 // @Router /auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var loginReq model.LoginRequest
@@ -52,15 +54,15 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 // AdminSetup godoc
-// @Summary Initialize first admin user
-// @Description Create the first admin user in the system (one-time endpoint, auto-disabled after first use)
-// @Tags Authentication
+// @Summary Initialize first admin user (super_admin)
+// @Description Create the first super_admin user in the system (one-time endpoint, auto-disabled after first use). Returns JWT token for immediate use. Only succeeds if no admin exists yet.
+// @Tags User Management
 // @Accept json
 // @Produce json
-// @Param request body model.AdminSetupRequest true "Admin setup credentials"
-// @Success 201 {object} model.LoginResponse "Admin created successfully with JWT token"
-// @Failure 400 {object} map[string]string "Invalid request format"
-// @Failure 409 {object} map[string]string "Admin already exists"
+// @Param request body model.AdminSetupRequest true "Admin setup credentials: username, password (min 6 chars), optional full_name"
+// @Success 201 {object} model.LoginResponse "Super admin created successfully with JWT token. User object includes immutable id and auto-set created_at"
+// @Failure 400 {object} map[string]string "Invalid request format or invalid credentials"
+// @Failure 409 {object} map[string]string "Conflict: Admin user already exists"
 // @Router /admin/setup [post]
 func (h *Handler) AdminSetup(c *gin.Context) {
 	var setupReq model.AdminSetupRequest
@@ -86,13 +88,13 @@ func (h *Handler) AdminSetup(c *gin.Context) {
 }
 
 // Logout godoc
-// @Summary User logout
-// @Description Logout user (stateless JWT - just discard token on client side)
+// @Summary User logout - Discard JWT token
+// @Description Logout user (stateless JWT - server-side confirms, client discards token).
 // @Tags Authentication
 // @Security Bearer
 // @Produce json
-// @Success 200 {object} map[string]string "Logout successful"
-// @Failure 401 {object} map[string]string "Missing authorization header"
+// @Success 200 {object} map[string]string "Logout successful - delete token from client storage"
+// @Failure 401 {object} map[string]string "Unauthorized - missing Authorization header"
 // @Router /auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")

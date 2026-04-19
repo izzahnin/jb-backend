@@ -71,7 +71,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	}
 }
 
-// AdminMiddleware adalah middleware untuk check apakah user punya role 'admin'.
+// AdminMiddleware checks whether user has one of internal admin/staff roles.
 // Harus dipanggil SETELAH AuthMiddleware (agar sudah ada user claims di context).
 // Digunakan pada /admin/* routes untuk mencegah customer access.
 func AdminMiddleware() gin.HandlerFunc {
@@ -85,9 +85,9 @@ func AdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Check apakah role adalah 'admin'
+		// Check whether role belongs to internal admin/staff roles.
 		roleStr, ok := role.(string)
-		if !ok || roleStr != "admin" {
+		if !ok || (roleStr != "super_admin" && roleStr != "admin_sales" && roleStr != "admin_ops") {
 			// Jika bukan admin, return 403 Forbidden (authenticated tapi tidak authorized)
 			c.JSON(http.StatusForbidden, gin.H{"error": "admin role required"})
 			c.Abort()
@@ -95,6 +95,38 @@ func AdminMiddleware() gin.HandlerFunc {
 		}
 
 		// Proceed ke handler
+		c.Next()
+	}
+}
+
+// RequireRoles enforces a role allowlist for route groups.
+func RequireRoles(allowed ...string) gin.HandlerFunc {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, role := range allowed {
+		allowedSet[role] = struct{}{}
+	}
+
+	return func(c *gin.Context) {
+		roleVal, exists := c.Get("role")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing role in context"})
+			c.Abort()
+			return
+		}
+
+		role, ok := roleVal.(string)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid role format"})
+			c.Abort()
+			return
+		}
+
+		if _, ok := allowedSet[role]; !ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": "insufficient role permission"})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }

@@ -90,6 +90,7 @@ func (u *AuthUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 		User: model.User{
 			ID:       user.ID,
 			Username: user.Username,
+			FullName: user.FullName,
 			Role:     user.Role,
 			IsActive: user.IsActive,
 			CreatedAt: user.CreatedAt,
@@ -97,16 +98,23 @@ func (u *AuthUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 	}, nil
 }
 
-// AdminSetup menangani pembuatan admin user pertama kali (one-time setup).
-// Endpoint ini hanya bisa dijalankan sekali - setelah ada admin, harus pakai POST /admin/users.
-// Flow:
-// 1. Cek apakah sudah ada admin user di sistem
+// AdminSetup menangani pembuatan super_admin pertama kali (one-time setup).
+// Endpoint PUBLIK - tidak perlu authentication, hanya bisa dijalankan SEKALI.
+// Setelah ada super_admin, gunakan POST /admin/users (dengan JWT super_admin) untuk create user lainnya.
+//
+// Workflow Admin Setup:
+// 1. POST /admin/setup (one-time, public) → create super_admin + return JWT
+// 2. POST /auth/login (public) → login dengan super_admin credentials
+// 3. POST /admin/users (protected, super_admin only) → create admin_sales atau admin_ops users
+//
+// Flow Setup:
+// 1. Cek apakah sudah ada super_admin user di sistem
 // 2. Jika sudah ada, return error (endpoint sudah disabled secara logic)
 // 3. Jika belum ada, validasi input (username, password)
 // 4. Hash password dengan bcrypt
-// 5. Simpan admin user pertama
-// 6. Generate JWT token dan return (langsung bisa login)
-// Returns: LoginResponse (token + user info) atau error jika admin sudah ada atau validation gagal.
+// 5. Simpan super_admin user pertama
+// 6. Generate JWT token dan return (langsung bisa login tanpa POST /auth/login)
+// Returns: LoginResponse (token + user info) atau error jika super_admin sudah ada atau validation gagal.
 func (u *AuthUsecase) AdminSetup(ctx context.Context, req *model.AdminSetupRequest) (*model.LoginResponse, error) {
 	// 1. CHECK EXISTENCE: Cek apakah sudah ada admin user
 	adminExists, err := u.userRepo.AdminExists(ctx)
@@ -143,11 +151,18 @@ func (u *AuthUsecase) AdminSetup(ctx context.Context, req *model.AdminSetupReque
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 6. CREATE ADMIN USER WITH ROLE 'admin'
+	// 6. SET DEFAULT FULLNAME: Jika fullname kosong, gunakan username sebagai display name
+	fullName := req.FullName
+	if fullName == "" {
+		fullName = req.Username
+	}
+
+	// 7. CREATE ADMIN USER WITH ROLE 'super_admin'
 	newAdmin := &model.User{
 		Username:     req.Username,
+		FullName:     fullName,
 		PasswordHash: passwordHash,
-		Role:         "admin", // Hard-coded: always create admin role
+		Role:         "super_admin",
 		IsActive:     true,
 	}
 
@@ -181,6 +196,7 @@ func (u *AuthUsecase) AdminSetup(ctx context.Context, req *model.AdminSetupReque
 		User: model.User{
 			ID:       newAdmin.ID,
 			Username: newAdmin.Username,
+			FullName: newAdmin.FullName,
 			Role:     newAdmin.Role,
 			IsActive: newAdmin.IsActive,
 		},

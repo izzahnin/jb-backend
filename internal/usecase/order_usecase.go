@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
@@ -9,15 +10,15 @@ import (
 
 type OrderUsecase struct {
 	orderRepo *repository.OrderRepository
-	truckRepo *repository.TruckRepository
+	customerRepo *repository.CustomerRepository
 }
 
 // NewOrderUsecase membuat instance baru dari OrderUsecase.
 // Menerima dependency injection kedua repository (order dan truck) untuk validasi cross-domain.
-func NewOrderUsecase(orderRepo *repository.OrderRepository, truckRepo *repository.TruckRepository) *OrderUsecase {
+func NewOrderUsecase(orderRepo *repository.OrderRepository, customerRepo *repository.CustomerRepository) *OrderUsecase {
 	return &OrderUsecase{
 		orderRepo: orderRepo,
-		truckRepo: truckRepo,
+		customerRepo: customerRepo,
 	}
 }
 
@@ -42,8 +43,20 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, o *model.Order) error {
 		return ErrOrderDestinationRequired
 	}
 
-	// Business rule: status default adalah "pending"
+	if o.CustomerID <= 0 {
+		return ErrOrderCustomerRequired
+	}
+
+	if o.TotalContainers <= 0 {
+		return ErrOrderTotalContainersInvalid
+	}
+
+	if _, err := u.customerRepo.GetByID(ctx, o.CustomerID); err != nil {
+		return ErrCustomerNotFound
+	}
+
 	o.Status = "pending"
+	o.OrderDate = time.Now().UTC()
 
 	// Simpan ke database
 	return u.orderRepo.CreateOrder(ctx, o)
@@ -69,50 +82,6 @@ func (u *OrderUsecase) GetByOrderNumber(ctx context.Context, orderNumber string)
 	return u.orderRepo.GetByOrderNumber(ctx, orderNumber)
 }
 
-// AssignTruck mengassign truck ke order dengan validasi comprehensive.
-// Validasi:
-//   - Order dan truck existance
-//   - Truck must be is_active = true
-//   - Order status harus pending atau pickup
-// Returns: error jika validasi gagal atau database error.
-func (u *OrderUsecase) AssignTruck(ctx context.Context, orderID int, truckID int) error {
-	// Validasi: order id harus valid (> 0)
-	if orderID <= 0 {
-		return ErrOrderInvalidID
-	}
-
-	// Validasi: truck id harus valid (> 0)
-	if truckID <= 0 {
-		return ErrTruckInvalidID
-	}
-
-	// Cek: truck harus ada di database
-	truck, err := u.truckRepo.GetByID(ctx, truckID)
-	if err != nil {
-		return ErrTruckNotFound
-	}
-
-	// Cek: truck harus aktif
-	if !truck.IsActive {
-		return ErrTruckInactive
-	}
-
-	// Cek: order harus ada di database
-	order, err := u.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return ErrOrderNotFound
-	}
-
-	// Cek: order status harus "pending" saja untuk initial assign
-	// (Setelah assign, status akan menjadi "pickup", dan tidak bisa re-assign)
-	if order.Status != "pending" {
-		return ErrOrderInvalidAssignStatus
-	}
-
-	// Assign truck - repository akan UPDATE status menjadi "in_transit"
-	return u.orderRepo.AssignTruck(ctx, orderID, truckID)
-}
-
 // UpdateStatus mengubah status order dengan validasi state machine.
 // Validasi:
 //   - Order exists
@@ -127,11 +96,10 @@ func (u *OrderUsecase) UpdateStatus(ctx context.Context, id int, newStatus strin
 
 	// Validasi: status baru harus valid (salah satu dari enum values)
 	validStatuses := map[string]bool{
-		"pending":    true,
-		"pickup":     true,
-		"in_transit": true,
-		"delivered":  true,
-		"cancelled":  true,
+		"pending":   true,
+		"partial":   true,
+		"completed": true,
+		"cancelled": true,
 	}
 
 	if !validStatuses[newStatus] {
@@ -159,11 +127,10 @@ func (u *OrderUsecase) UpdateStatus(ctx context.Context, id int, newStatus strin
 func (u *OrderUsecase) isValidStatusTransition(currentStatus, newStatus string) bool {
 	// Define state machine: status mana saja yang bisa transition ke status mana
 	validTransitions := map[string][]string{
-		"pending":    {"pickup", "cancelled"},
-		"pickup":     {"in_transit", "cancelled", "pending"},
-		"in_transit": {"delivered", "cancelled"},
-		"delivered":  {}, // final state - tidak ada transisi keluar
-		"cancelled":  {}, // final state - tidak ada transisi keluar
+		"pending":   {"partial", "cancelled"},
+		"partial":   {"completed", "cancelled"},
+		"completed": {},
+		"cancelled": {},
 	}
 
 	// Ambil list status yang diizinkan dari currentStatus
@@ -197,7 +164,7 @@ func (u *OrderUsecase) Cancel(ctx context.Context, id int) error {
 	}
 
 	// Cek: order tidak boleh sudah delivered atau cancelled
-	if order.Status == "delivered" || order.Status == "cancelled" {
+	if order.Status == "completed" || order.Status == "cancelled" {
 		return ErrOrderCannotCancel
 	}
 

@@ -27,13 +27,15 @@ func (u *TruckUsecase) RegisterTruck(ctx context.Context, t *model.Truck) error 
 		return ErrTruckPlateRequired
 	}
 
-	// Validasi: driver_name wajib diisi
-	if t.DriverName == "" {
-		return ErrTruckDriverRequired
+	if t.TruckType == "" {
+		return ErrTruckTypeRequired
 	}
 
 	// Business rule: set truck baru sebagai aktif
 	t.IsActive = true
+	if t.Status == "" {
+		t.Status = "available"
+	}
 
 	return u.repo.Create(ctx, t)
 }
@@ -65,14 +67,16 @@ func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruc
 	}
 
 	// Merge updates: hanya update field yang diisi (pointer tidak nil)
-	// plate_number: update hanya jika pointer diisi
 	if req.PlateNumber != nil {
 		existing.PlateNumber = *req.PlateNumber
 	}
 
-	// driver_name: update hanya jika pointer diisi
-	if req.DriverName != nil {
-		existing.DriverName = *req.DriverName
+	if req.TruckType != nil {
+		existing.TruckType = *req.TruckType
+	}
+
+	if req.Status != nil {
+		existing.Status = *req.Status
 	}
 
 	// is_active: update hanya jika pointer diisi
@@ -80,12 +84,17 @@ func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruc
 		existing.IsActive = *req.IsActive
 	}
 
-	// Final validation: pastikan setelah merge, kedua field required tidak kosong
+	// Final validation
 	if existing.PlateNumber == "" {
 		return ErrTruckPlateRequired
 	}
-	if existing.DriverName == "" {
-		return ErrTruckDriverRequired
+	if existing.TruckType == "" {
+		return ErrTruckTypeRequired
+	}
+
+	validStatus := map[string]bool{"available": true, "on_duty": true, "maintenance": true}
+	if !validStatus[existing.Status] {
+		return ErrValidationFailed
 	}
 
 	return u.repo.Update(ctx, id, existing)

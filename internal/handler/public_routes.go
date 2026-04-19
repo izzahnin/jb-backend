@@ -42,37 +42,26 @@ func (h *Handler) PublicOrderTracking(c *gin.Context) {
 		return
 	}
 
-	// Ambil info armada jika ada
-	var truckInfo interface{} = nil
-	if order.TruckID != nil {
-		truck, err := h.TruckUsecase.GetByID(ctx, *order.TruckID)
-		if err == nil {
-			truckInfo = gin.H{
-				"id":           truck.ID,
-				"plate_number": truck.PlateNumber,
-				"driver_name":  truck.DriverName,
-			}
-		}
+	trips, err := h.TripUsecase.GetByOrderID(ctx, order.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data trip"})
+		return
 	}
 
-	// Ambil lokasi terbaru armada jika ada
-	var locationInfo interface{} = nil
-	if order.TruckID != nil {
-		location, err := h.LocRepo.GetLatestLocation(ctx, *order.TruckID)
-		if err == nil {
-			locationInfo = location
-		}
+	tripTracking := make([]gin.H, 0, len(trips))
+	for _, trip := range trips {
+		latestLoc, _ := h.LocationUsecase.GetLatest(ctx, trip.ID)
+		tripTracking = append(tripTracking, gin.H{
+			"trip":            trip,
+			"latest_location": latestLoc,
+		})
 	}
 
+	// Return order data in the expected frontend format
 	c.JSON(http.StatusOK, gin.H{
-		"order": gin.H{
-			"order_number": order.OrderNumber,
-			"status":       order.Status,
-			"origin":       order.Origin,
-			"destination":  order.Destination,
-			"created_at":   order.CreatedAt,
+		"data": gin.H{
+			"order": order,
+			"trips": tripTracking,
 		},
-		"truck":    truckInfo,
-		"location": locationInfo,
 	})
 }

@@ -184,7 +184,7 @@ jb-backend/
 ├── migrations/ ......................... Database schema versioning
 │   ├── 000001_create_initial_tables.up.sql .... Base schema
 │   ├── 000001_create_initial_tables.down.sql .. Rollback script
-│   └── 000002_create_orders_table.up.sql ...... Order schema with CHECK constraint
+│   └── init.sql ............................ Docker bootstrap script (same schema)
 │
 ├── docker-compose.yaml ................ Container orchestration
 ├── go.mod / go.sum .................... Dependency management

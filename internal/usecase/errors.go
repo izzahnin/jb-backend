@@ -7,26 +7,51 @@ import "errors"
 
 var (
 	// Truck-related errors
-	ErrTruckInvalidID   = errors.New("truck id tidak valid")
-	ErrTruckNotFound    = errors.New("truck tidak ditemukan")
-	ErrTruckInactive    = errors.New("truck tidak aktif, tidak bisa ditugaskan ke order")
-	ErrTruckRequired    = errors.New("truck wajib diisikan")
+	ErrTruckInvalidID     = errors.New("truck id tidak valid")
+	ErrTruckNotFound      = errors.New("truck tidak ditemukan")
+	ErrTruckInactive      = errors.New("truck tidak aktif")
+	ErrTruckRequired      = errors.New("truck wajib diisikan")
 	ErrTruckPlateRequired = errors.New("nomor plat truck wajib diisi")
-	ErrTruckDriverRequired = errors.New("nama driver truck wajib diisi")
+	ErrTruckTypeRequired  = errors.New("tipe truck wajib diisi")
+
+	// Driver-related errors
+	ErrDriverInvalidID = errors.New("driver id tidak valid")
+	ErrDriverNotFound  = errors.New("driver tidak ditemukan")
+	ErrDriverInactive  = errors.New("driver tidak aktif")
+	ErrDriverNameRequired    = errors.New("nama driver wajib diisi")
+	ErrDriverLicenseRequired = errors.New("nomor SIM wajib diisi")
+	ErrDriverPhoneRequired   = errors.New("nomor telepon driver wajib diisi")
+
+	// Customer-related errors
+	ErrCustomerInvalidID = errors.New("customer id tidak valid")
+	ErrCustomerNotFound  = errors.New("customer tidak ditemukan")
+	ErrCustomerCompanyRequired = errors.New("nama perusahaan wajib diisi")
+	ErrCustomerPICRequired     = errors.New("nama PIC wajib diisi")
+	ErrCustomerPhoneRequired   = errors.New("nomor telepon wajib diisi")
 
 	// Order-related errors
 	ErrOrderInvalidID              = errors.New("order id tidak valid")
 	ErrOrderNotFound               = errors.New("order tidak ditemukan")
 	ErrOrderNumberRequired         = errors.New("nomor order wajib diisi")
+	ErrOrderCustomerRequired       = errors.New("customer wajib diisi")
 	ErrOrderOriginRequired         = errors.New("lokasi asal wajib diisi")
 	ErrOrderDestinationRequired    = errors.New("lokasi tujuan wajib diisi")
+	ErrOrderTotalContainersInvalid = errors.New("total kontainer minimal 1")
 	ErrOrderInvalidStatus          = errors.New("status order tidak valid")
 	ErrOrderInvalidStatusTransition = errors.New("transisi status tidak diizinkan")
 	ErrOrderCannotCancel           = errors.New("order tidak bisa dibatalkan dari status ini")
-	ErrOrderInvalidAssignStatus    = errors.New("order harus dalam status pending atau pickup untuk bisa ditugaskan truk")
+
+	// Trip-related errors
+	ErrTripInvalidID               = errors.New("trip id tidak valid")
+	ErrTripNotFound                = errors.New("trip tidak ditemukan")
+	ErrTripNumberRequired          = errors.New("nomor surat jalan wajib diisi")
+	ErrTripInvalidStatus           = errors.New("status trip tidak valid")
+	ErrTripInvalidStatusTransition = errors.New("transisi status trip tidak diizinkan")
+	ErrTripContainerRequired       = errors.New("nomor kontainer wajib diisi")
+	ErrTripSealRequired            = errors.New("nomor segel wajib diisi")
 
 	// Location-related errors
-	ErrLocationInvalidTruckID = errors.New("truck id untuk location tidak valid")
+	ErrLocationInvalidTripID = errors.New("trip id untuk location tidak valid")
 	ErrLocationInvalidCoords  = errors.New("koordinat latitude/longitude tidak valid")
 
 	// Validation errors

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/izzahnin/jalur-berlian-backend/docs"
 	"github.com/izzahnin/jalur-berlian-backend/internal/handler"
@@ -144,15 +145,22 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	fmt.Println("🔧 Initializing repositories...")
 	truckRepo := repository.NewTruckRepository(app.DB)
 	orderRepo := repository.NewOrderRepository(app.DB)
-	locRepo := repository.NewRedisLocationRepo(app.Redis)
+	tripRepo := repository.NewTripRepository(app.DB)
+	driverRepo := repository.NewDriverRepository(app.DB)
+	customerRepo := repository.NewCustomerRepository(app.DB)
+	auditRepo := repository.NewAuditLogRepository(app.DB)
+	locRepo := repository.NewPostgresLocationRepo(app.DB)
 	userRepo := repository.NewUserRepository(app.DB)
 	fmt.Println("✅ Repositories initialized")
 
 	// Initialize Usecases (Business Logic Layer)
 	fmt.Println("🔧 Initializing usecases...")
 	truckUsecase := usecase.NewTruckUsecase(truckRepo)
-	orderUsecase := usecase.NewOrderUsecase(orderRepo, truckRepo)
+	orderUsecase := usecase.NewOrderUsecase(orderRepo, customerRepo)
+	tripUsecase := usecase.NewTripUsecase(tripRepo, orderRepo, truckRepo, driverRepo, auditRepo)
 	locationUsecase := usecase.NewLocationUsecase(locRepo)
+	customerUsecase := usecase.NewCustomerUsecase(customerRepo)
+	driverUsecase := usecase.NewDriverUsecase(driverRepo)
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)
 	userUsecase := usecase.NewUserUsecase(userRepo)
 	fmt.Println("✅ Usecases initialized")
@@ -162,10 +170,20 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	gin.SetMode(cfg.GinMode)
 	router := gin.Default()
 
+	// Setup CORS middleware
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * 3600,
+	}))
+
 	// Initialize Handler with all dependencies
 	h := handler.NewHandler(
-		truckRepo, orderRepo, locRepo, userRepo,
-		truckUsecase, orderUsecase, locationUsecase, authUsecase, userUsecase,
+		truckRepo, orderRepo, tripRepo, driverRepo, customerRepo, auditRepo, locRepo, userRepo,
+		truckUsecase, orderUsecase, tripUsecase, locationUsecase, customerUsecase, driverUsecase, authUsecase, userUsecase,
 		cfg.JWTSecret,
 	)
 

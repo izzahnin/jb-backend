@@ -168,20 +168,24 @@ psql -U postgres -d jalur_berlian
 
 # Run migration files manually
 \i migrations/000001_create_initial_tables.up.sql
-\i migrations/000002_create_orders_table.up.sql
 ```
 
 ### Database Schema Overview
 
 **Tables Created**:
-- `users` - Admin accounts with password hashing
-- `trucks` - Fleet management (plate_number, driver_name, status)
-- `orders` - Order data (order_number, origin, destination, status)
-- `locations` - Location history (truck_id, latitude, longitude, timestamp)
+- `users` - Internal admin/staff accounts with role hierarchy
+- `customers` - Business customer profiles (no login)
+- `drivers` - Driver master data and availability status
+- `trucks` - Fleet master data with truck type and status
+- `orders` - Global customer order (commercial layer)
+- `trips` - Operational execution/surat jalan per truck
+- `locations` - GPS history per trip (partitioned by time)
+- `audit_logs` - Change log for compliance
 
 **Constraints**:
-- Order status follows state machine: pending → pickup → in_transit → delivered
-- Database-level CHECK constraint prevents invalid state transitions
+- Order status follows: pending → partial → completed/cancelled
+- Trip status follows: pickup → in_transit → delivered/cancelled
+- Database-level CHECK constraints prevent invalid enum values
 - Foreign keys enforce referential integrity
 
 ---

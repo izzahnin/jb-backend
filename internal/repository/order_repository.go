@@ -22,9 +22,19 @@ func NewOrderRepository(db *sqlx.DB) *OrderRepository {
 // Status akan di-set ke value yang dikirim dari usecase (biasanya "pending").
 // Returns: error jika ada constraint violation (duplicate order_number) atau database error.
 func (r *OrderRepository) CreateOrder(ctx context.Context, o *model.Order) error {
-	query := `INSERT INTO orders (order_number, truck_id, origin, destination, status) 
-						VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`
-	return r.db.QueryRowContext(ctx, query,o.OrderNumber, o.TruckID, o.Origin, o.Destination, o.Status).Scan(&o.ID, &o.CreatedAt)
+	query := `INSERT INTO orders (order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	          RETURNING id, order_date`
+	return r.db.QueryRowContext(ctx, query,
+		o.OrderNumber,
+		o.CustomerID,
+		o.AdminID,
+		o.Origin,
+		o.Destination,
+		o.TotalContainers,
+		o.OrderDate,
+		o.Status,
+	).Scan(&o.ID, &o.OrderDate)
 }
 
 // FetchAll mengambil seluruh daftar order dari database (deprecated: use FetchAllWithPagination).
@@ -32,8 +42,8 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, o *model.Order) error
 // Returns: slice dari order pointers, atau error jika query gagal.
 func (r *OrderRepository) FetchAll(ctx context.Context) ([]*model.Order, error) {
 	var orders []*model.Order
-	query := `SELECT id, order_number, truck_id, status, origin, destination, created_at
-						FROM orders ORDER BY created_at DESC`
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status
+						FROM orders ORDER BY order_date DESC`
 	
 	if err := r.db.SelectContext(ctx, &orders, query); err != nil {
 		return nil, err
@@ -46,8 +56,8 @@ func (r *OrderRepository) FetchAll(ctx context.Context) ([]*model.Order, error) 
 // Returns: slice dari order pointers, atau error jika query gagal.
 func (r *OrderRepository) FetchAllWithPagination(ctx context.Context, limit, offset int) ([]*model.Order, error) {
 	var orders []*model.Order
-	query := `SELECT id, order_number, truck_id, status, origin, destination, created_at
-						FROM orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status
+						FROM orders ORDER BY order_date DESC LIMIT $1 OFFSET $2`
 	
 	if err := r.db.SelectContext(ctx, &orders, query, limit, offset); err != nil {
 		return nil, err
@@ -71,7 +81,7 @@ func (r *OrderRepository) Count(ctx context.Context) (int, error) {
 // Returns: pointer ke order object, atau error jika order tidak ditemukan atau query gagal.
 func (r *OrderRepository) GetByID(ctx context.Context, id int) (*model.Order, error) {
 	o := &model.Order{}
-	query := `SELECT id, order_number, truck_id, status, origin, destination, created_at
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status
 						FROM orders WHERE id = $1`
 	if err := r.db.GetContext(ctx, o, query, id); err != nil {
 		if err == sql.ErrNoRows {
@@ -87,7 +97,7 @@ func (r *OrderRepository) GetByID(ctx context.Context, id int) (*model.Order, er
 // Returns: pointer ke order object, atau error jika tidak ditemukan atau query gagal.
 func (r *OrderRepository) GetByOrderNumber(ctx context.Context, orderNumber string) (*model.Order, error) {
 	o := &model.Order{}
-	query := `SELECT id, order_number, truck_id, status, origin, destination, created_at
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status
 						FROM orders WHERE order_number = $1`
 	if err := r.db.GetContext(ctx, o, query, orderNumber); err != nil {
 		if err == sql.ErrNoRows {
@@ -107,15 +117,6 @@ func (r *OrderRepository) UpdateStatus(ctx context.Context, id int, newStatus st
 	return err
 }
 
-// AssignTruck mengassign truck ke order dan mengubah status menjadi "in_transit".
-// Melakukan UPDATE truck_id dan status menjadi "pickup" (truck assigned, waiting at warehouse).
-	// Returns: error jika order tidak ditemukan atau query gagal.
-	func (r *OrderRepository) AssignTruck(ctx context.Context, orderID int, truckID int) error {
-		query := `UPDATE orders SET truck_id = $1, status = 'pickup' WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, truckID, orderID)
-	return err
-}
-
 // Delete melakukan soft delete order dengan status "cancelled" atau hard delete berdasarkan context.
 // Saat ini menggunakan hard delete (DELETE FROM) - dapat diubah ke soft delete jika diperlukan.
 // Returns: error jika order tidak ditemukan atau query gagal.
@@ -123,4 +124,16 @@ func (r *OrderRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM orders WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
+}
+
+// CountByStatus menghitung jumlah order berdasarkan status.
+// Digunakan untuk dashboard stats breakdown.
+// Returns: jumlah order dengan status tertentu, atau error jika query gagal.
+func (r *OrderRepository) CountByStatus(ctx context.Context, status string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM orders WHERE status = $1`
+	if err := r.db.GetContext(ctx, &count, query, status); err != nil {
+		return 0, err
+	}
+	return count, nil
 }

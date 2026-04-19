@@ -2,88 +2,67 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
-	"github.com/izzahnin/jalur-berlian-backend/pkg/database"
-	"github.com/redis/go-redis/v9"
+	"github.com/jmoiron/sqlx"
 )
 
 type LocationRepository interface {
-	SaveLocation(ctx context.Context, truckID int, lat, lon float64, ts time.Time) error
-	GetLatestLocation(ctx context.Context, truckID int) (*model.Location, error)
-	GetHistory(ctx context.Context, truckID int, limit int) ([]model.Location, error)
+	SaveLocation(ctx context.Context, tripID int, lat, lon float64, speed *float64, ts time.Time) error
+	GetLatestLocation(ctx context.Context, tripID int) (*model.Location, error)
+	GetHistory(ctx context.Context, tripID int, limit int) ([]model.Location, error)
 }
 
-type redisLocationRepo struct {
-	rdb *database.RedisClient
+type postgresLocationRepo struct {
+	db *sqlx.DB
 }
 
-func NewRedisLocationRepo(rdb *database.RedisClient) LocationRepository {
-	return &redisLocationRepo{rdb: rdb}
+func NewPostgresLocationRepo(db *sqlx.DB) LocationRepository {
+	return &postgresLocationRepo{db: db}
 }
 
-func (r *redisLocationRepo) SaveLocation(ctx context.Context, truckID int, lat, lon float64, ts time.Time) error {
-	c := r.rdb.Client()
-	// GEOADD for latest position
-	if err := c.GeoAdd(ctx, "trucks:geo", &redis.GeoLocation{
-		Longitude: lon,
-		Latitude:  lat,
-		Name:      fmt.Sprintf("%d", truckID),
-	}).Err(); err != nil {
-		return err
-	}
-
-	// Push history as JSON and cap to last 1000 entries
-	loc := model.Location{
-		TruckID:   truckID,
-		Latitude:  lat,
-		Longitude: lon,
-		CreatedAt: ts,
-	}
-	b, _ := json.Marshal(loc)
-	key := fmt.Sprintf("trucks:%d:loc", truckID)
-	if err := c.LPush(ctx, key, b).Err(); err != nil {
-		return err
-	}
-	if err := c.LTrim(ctx, key, 0, 999).Err(); err != nil {
-		return err
-	}
-	return nil
+func (r *postgresLocationRepo) SaveLocation(ctx context.Context, tripID int, lat, lon float64, speed *float64, ts time.Time) error {
+	query := `INSERT INTO locations (trip_id, latitude, longitude, speed, created_at)
+	          VALUES ($1, $2, $3, $4, $5)`
+	_, err := r.db.ExecContext(ctx, query, tripID, lat, lon, speed, ts)
+	return err
 }
 
-func (r *redisLocationRepo) GetLatestLocation(ctx context.Context, truckID int) (*model.Location, error) {
-	c := r.rdb.Client()
-	key := fmt.Sprintf("trucks:%d:loc", truckID)
-	raw, err := c.LIndex(ctx, key, 0).Result()
-	if err != nil {
-		if err == redis.Nil {
+func (r *postgresLocationRepo) GetLatestLocation(ctx context.Context, tripID int) (*model.Location, error) {
+	var loc model.Location
+	query := `SELECT id, trip_id, latitude, longitude, speed, created_at
+	          FROM locations
+	          WHERE trip_id = $1
+	          ORDER BY created_at DESC
+	          LIMIT 1`
+	if err := r.db.GetContext(ctx, &loc, query, tripID); err != nil {
+		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
-	}
-	var loc model.Location
-	if err := json.Unmarshal([]byte(raw), &loc); err != nil {
 		return nil, err
 	}
 	return &loc, nil
 }
 
-func (r *redisLocationRepo) GetHistory(ctx context.Context, truckID int, limit int) ([]model.Location, error) {
-	c := r.rdb.Client()
-	key := fmt.Sprintf("trucks:%d:loc", truckID)
-	vals, err := c.LRange(ctx, key, 0, int64(limit-1)).Result()
-	if err != nil {
+func (r *postgresLocationRepo) GetHistory(ctx context.Context, tripID int, limit int) ([]model.Location, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var locations []model.Location
+	query := `SELECT id, trip_id, latitude, longitude, speed, created_at
+	          FROM locations
+	          WHERE trip_id = $1
+	          ORDER BY created_at DESC
+	          LIMIT $2`
+	if err := r.db.SelectContext(ctx, &locations, query, tripID, limit); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []model.Location{}, nil
+		}
 		return nil, err
 	}
-	res := make([]model.Location, 0, len(vals))
-	for _, v := range vals {
-		var l model.Location
-		if err := json.Unmarshal([]byte(v), &l); err == nil {
-			res = append(res, l)
-		}
-	}
-	return res, nil
+	return locations, nil
 }

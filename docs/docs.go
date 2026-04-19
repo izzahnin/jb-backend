@@ -24,41 +24,45 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/admin/orders": {
+        "/admin/customers": {
             "get": {
                 "security": [
                     {
                         "Bearer": []
                     }
                 ],
-                "description": "Get all orders with pagination support",
+                "description": "Get list of all customers. All authenticated admins can access.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Orders"
+                    "Customers"
                 ],
-                "summary": "List all orders",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Items per page",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
+                "summary": "List customers",
                 "responses": {
                     "200": {
-                        "description": "List of orders",
+                        "description": "Customer list with count",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -69,7 +73,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Create a new order with pending status",
+                "description": "Create a new business customer (company/PIC/contact). All authenticated admins can access.",
                 "consumes": [
                     "application/json"
                 ],
@@ -77,30 +81,48 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Orders"
+                    "Customers"
                 ],
-                "summary": "Create a new order",
+                "summary": "Create customer",
                 "parameters": [
                     {
-                        "description": "Order details",
-                        "name": "order",
+                        "description": "Customer data: company_name, pic_name, phone, email, address, npwp",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Order"
+                            "$ref": "#/definitions/model.CreateCustomerRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Order created",
+                        "description": "Customer created successfully",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid input",
+                        "description": "Bad request - missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -111,14 +133,606 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/orders/assign": {
+        "/admin/customers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve a customer by ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get customer detail",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Customer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer detail",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid customer ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - customer tidak ditemukan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Delete a customer by ID. All authenticated admins can access.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Delete customer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Customer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid customer ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - customer tidak ditemukan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
                         "Bearer": []
                     }
                 ],
-                "description": "Assign a truck to an order",
+                "description": "Update customer fields (partial). All authenticated admins can access.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Update customer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Customer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Customer update data (partial)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateCustomerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - customer tidak ditemukan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dashboard/stats": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get dashboard overview with order stats, truck count, user count, etc.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get dashboard statistics",
+                "responses": {
+                    "200": {
+                        "description": "Dashboard statistics",
+                        "schema": {
+                            "$ref": "#/definitions/handler.DashboardStats"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/drivers": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get list of all drivers. All authenticated admins can access.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Drivers"
+                ],
+                "summary": "List drivers",
+                "responses": {
+                    "200": {
+                        "description": "Driver list with count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new driver. All authenticated admins can access.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Drivers"
+                ],
+                "summary": "Create driver",
+                "parameters": [
+                    {
+                        "description": "Driver data: name, license_number, phone, status, is_active",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateDriverRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Driver created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/drivers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve a driver by ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Drivers"
+                ],
+                "summary": "Get driver detail",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Driver ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Driver detail",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid driver ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - driver tidak ditemukan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Deactivate a driver by ID. All authenticated admins can access.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Drivers"
+                ],
+                "summary": "Delete driver",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Driver ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Driver deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid driver ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - driver tidak ditemukan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Update driver fields (partial). All authenticated admins can access.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Drivers"
+                ],
+                "summary": "Update driver",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Driver ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Driver update data (partial)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateDriverRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Driver updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - driver tidak ditemukan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/orders": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get all orders with pagination support. Returns list of orders sorted by order_date DESC.",
                 "consumes": [
                     "application/json"
                 ],
@@ -128,24 +742,31 @@ const docTemplate = `{
                 "tags": [
                     "Orders"
                 ],
-                "summary": "Assign truck to order",
+                "summary": "List all orders",
                 "parameters": [
                     {
-                        "description": "Order and Truck IDs",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "integer",
+                        "description": "Items per page (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination (default 0)",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Truck assigned",
+                        "description": "Order list with count and pagination info",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -153,8 +774,82 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden - admin_sales role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new order with customer, origin, destination, and total containers. Status auto-set to 'pending'. Admin ID extracted from JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Create new commercial order",
+                "parameters": [
+                    {
+                        "description": "Order details: order_number (required), customer_id (required), origin (required), destination (required), total_containers (required)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Order created successfully with id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "400": {
-                        "description": "Invalid input",
+                        "description": "Bad request: invalid JSON or missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_sales role required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -163,7 +858,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Order or Truck not found",
+                        "description": "Not found - customer_id tidak ada",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -171,8 +866,8 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
+                    "422": {
+                        "description": "Unprocessable entity - failed to create order",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -190,7 +885,10 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Retrieve a specific order by ID",
+                "description": "Retrieve detailed information of a specific order by ID. Includes customer, admin, and status info.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -209,14 +907,50 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Order details",
+                        "description": "Order details with all fields",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
+                    "400": {
+                        "description": "Bad request - invalid ID format",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_sales role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "404": {
-                        "description": "Order not found",
+                        "description": "Not found - order_id tidak ada",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -232,7 +966,10 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Cancel an order",
+                "description": "Cancel a specific order. Order must be in 'pending' or 'partial' status to be cancelled.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -251,7 +988,34 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Order cancelled",
+                        "description": "Order cancelled successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid ID format",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_sales role required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -260,7 +1024,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Order not found",
+                        "description": "Not found - order_id tidak ada",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -269,7 +1033,16 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Cannot cancel order",
+                        "description": "Conflict - cannot cancel order (invalid status or already completed)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -285,7 +1058,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update the status of an order",
+                "description": "Update the status of an order. Valid transitions: pending → partial/completed/cancelled, partial → completed/cancelled.",
                 "consumes": [
                     "application/json"
                 ],
@@ -305,8 +1078,508 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "New status",
-                        "name": "payload",
+                        "description": "Status update: status (required, one of: pending, partial, completed, cancelled)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order status updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid ID or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_sales role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - order_id tidak ada",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - invalid status transition",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/orders/{id}/trips": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve all trips (surat jalan) associated with a specific order ID. Shows trip number, status, truck, and driver assignments.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "List trips for order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of trips for the order",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid order ID format",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_ops role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/profile": {
+            "patch": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Update your own profile information (full_name and/or password). All authenticated admins can access. At least one field must be provided. Password must be at least 6 characters. User_id is extracted from JWT token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Update own profile (all admin roles)",
+                "parameters": [
+                    {
+                        "description": "Profile update data: full_name (optional), password (optional, min 6 chars). At least one required.",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully with message and updated user object (id, username, full_name, role, is_active, created_at)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request: at least one field (full_name or password) must be provided, or password must be at least 6 characters",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - user not found in database",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity - failed to update profile",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/setup": {
+            "post": {
+                "description": "Create the first super_admin user in the system (one-time endpoint, auto-disabled after first use). Returns JWT token for immediate use. Only succeeds if no admin exists yet.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Initialize first admin user (super_admin)",
+                "parameters": [
+                    {
+                        "description": "Admin setup credentials: username, password (min 6 chars), optional full_name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.AdminSetupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Super admin created successfully with JWT token. User object includes immutable id and auto-set created_at",
+                        "schema": {
+                            "$ref": "#/definitions/model.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format or invalid credentials",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict: Admin user already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/trips": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new trip (surat jalan) for an order. Requires order_id, truck_id, driver_id, and trip_number. Allocates truck and driver for the order.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "Create new trip",
+                "parameters": [
+                    {
+                        "description": "Trip details: order_id (required), truck_id (required), driver_id (required), trip_number (required)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateTripRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Trip created successfully with trip_number, status (assigned), truck and driver allocated",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid JSON or missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_ops role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - order_id, truck_id, or driver_id tidak ada",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - truck/driver inactive or invalid order status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/trips/{id}/deliver": {
+            "patch": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Complete a trip by marking it as delivered. Changes trip status from 'in_transit' to 'delivered'. Order status automatically updated to 'completed'.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "Complete trip",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Trip ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trip completed, status changed to delivered, order marked as completed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid trip ID format",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_ops role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found - trip_id tidak ada",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - cannot complete trip (invalid status or not in_transit)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/trips/{id}/start": {
+            "patch": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Start a trip by setting container_number and seal_number. Changes trip status from 'assigned' to 'in_transit'. Real-time tracking begins.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "Start trip",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Trip ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Trip start details: container_number (required), seal_number (required)",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -319,7 +1592,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Status updated",
+                        "description": "Trip started, status changed to in_transit",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -327,52 +1600,35 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "422": {
-                        "description": "Invalid status transition",
+                    "400": {
+                        "description": "Bad request - invalid ID or missing container/seal numbers",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
                                 "type": "string"
                             }
                         }
-                    }
-                }
-            }
-        },
-        "/admin/orders/{id}/confirm-delivery": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Confirm order delivery (status change: in_transit → delivered)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Orders"
-                ],
-                "summary": "Confirm delivery",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Delivery confirmed",
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_ops role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "404": {
-                        "description": "Order not found",
+                        "description": "Not found - trip_id tidak ada",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -381,51 +1637,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Invalid status for delivery",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/orders/{id}/confirm-pickup": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Confirm order pickup (status change: pickup → in_transit)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Orders"
-                ],
-                "summary": "Confirm pickup",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Pickup confirmed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Order not found",
+                        "description": "Conflict - cannot start trip (invalid status or already in_transit)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -433,8 +1645,8 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "409": {
-                        "description": "Invalid status for pickup",
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -512,12 +1724,12 @@ const docTemplate = `{
                 "summary": "Create a new truck",
                 "parameters": [
                     {
-                        "description": "Truck details",
+                        "description": "Truck details: plate_number, truck_type, status, is_active",
                         "name": "truck",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Truck"
+                            "$ref": "#/definitions/model.CreateTruckRequest"
                         }
                     }
                 ],
@@ -593,69 +1805,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Update truck details",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Trucks"
-                ],
-                "summary": "Update truck information",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Truck ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated truck details",
-                        "name": "truck",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.Truck"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Truck updated",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid input",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Truck not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
             "delete": {
                 "security": [
                     {
@@ -708,16 +1857,14 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/admin/users": {
-            "post": {
+            },
+            "patch": {
                 "security": [
                     {
                         "Bearer": []
                     }
                 ],
-                "description": "Create a new admin or customer user with username, password, and role",
+                "description": "Update truck details with PATCH support. Only provide fields you want to update (all fields are optional).",
                 "consumes": [
                     "application/json"
                 ],
@@ -725,29 +1872,37 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Users"
+                    "Trucks"
                 ],
-                "summary": "Create new user",
+                "summary": "Partially update truck information",
                 "parameters": [
                     {
-                        "description": "User creation data",
-                        "name": "body",
+                        "type": "integer",
+                        "description": "Truck ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Truck fields to update (only include fields you want to change)",
+                        "name": "truck",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreateUserRequest"
+                            "$ref": "#/definitions/model.UpdateTruckRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "User created successfully",
+                    "200": {
+                        "description": "Truck updated successfully with actual data from database",
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid input or role must be admin or customer",
+                        "description": "Invalid input or validation error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -755,17 +1910,8 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "409": {
-                        "description": "Username already exists",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable entity",
+                    "404": {
+                        "description": "Truck not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -785,9 +1931,153 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/users": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get list of all users with their username, role, and active status (password_hash excluded). Only super_admin can access. Returns message, count, and data array.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "List all users (super_admin only)",
+                "responses": {
+                    "200": {
+                        "description": "Success response with message, count, and data array of users (each user has id, username, full_name, role, is_active, created_at)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - super_admin role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new internal admin user with username, password, and role. Only super_admin can access. Full_name defaults to username if not provided. Password must be at least 6 characters.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Create new admin user (super_admin only)",
+                "parameters": [
+                    {
+                        "description": "User creation data: username (required), password (required, min 6 chars), full_name (optional), role (required: super_admin, admin_sales, or admin_ops), is_active (optional, default true)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User created successfully with user object containing id, username, full_name, role, is_active, created_at",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input: username required, password required, password must be at least 6 characters, role must be one of: super_admin, admin_sales, admin_ops",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - super_admin role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - username already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity - failed to create user",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
-                "description": "Login with username and password to get JWT token",
+                "description": "Login with username and password to receive JWT token. Token is valid for 24 hours. Use token in Authorization: Bearer header for subsequent requests.",
                 "consumes": [
                     "application/json"
                 ],
@@ -797,10 +2087,10 @@ const docTemplate = `{
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "User login",
+                "summary": "User login - Get JWT token",
                 "parameters": [
                     {
-                        "description": "Login credentials",
+                        "description": "Login credentials: username (required), password (required)",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -811,13 +2101,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Login successful with JWT token",
+                        "description": "Login successful - returns token, expires_at timestamp, and user object",
                         "schema": {
                             "$ref": "#/definitions/model.LoginResponse"
                         }
                     },
                     "400": {
-                        "description": "Invalid request format",
+                        "description": "Bad request - invalid request format or missing username/password",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -826,7 +2116,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Invalid credentials",
+                        "description": "Unauthorized - invalid username or password, or user inactive",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -844,17 +2134,17 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Logout user (stateless JWT - just discard token on client side)",
+                "description": "Logout user (stateless JWT - server-side confirms, client discards token).",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "User logout",
+                "summary": "User logout - Discard JWT token",
                 "responses": {
                     "200": {
-                        "description": "Logout successful",
+                        "description": "Logout successful - delete token from client storage",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -863,59 +2153,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Missing authorization header",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/register": {
-            "post": {
-                "description": "Register new admin user with username and password",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "User registration",
-                "parameters": [
-                    {
-                        "description": "Registration credentials",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Registration successful",
-                        "schema": {
-                            "$ref": "#/definitions/model.RegisterResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Username already exists",
+                        "description": "Unauthorized - missing Authorization header",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -985,9 +2223,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/trucks/{id}/location": {
+        "/trips/{id}/location": {
             "get": {
-                "description": "Retrieve the most recent location data for a specific truck in real-time",
+                "description": "Retrieve the most recent GPS location for a trip. Returns the latest coordinate point recorded.",
                 "consumes": [
                     "application/json"
                 ],
@@ -997,11 +2235,11 @@ const docTemplate = `{
                 "tags": [
                     "Locations"
                 ],
-                "summary": "Get latest truck location",
+                "summary": "Get latest location",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Truck ID",
+                        "description": "Trip ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1009,13 +2247,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Latest location data",
+                        "description": "Latest location record with lat, lon, speed, timestamp",
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid truck ID",
+                        "description": "Bad request - invalid trip ID format",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1024,7 +2263,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Truck or location not found",
+                        "description": "Not found - no location recorded for this trip",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1033,7 +2272,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error - failed to retrieve latest location",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1044,7 +2283,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Record GPS coordinates and timestamp for a specific truck for real-time tracking",
+                "description": "Save current GPS location for a trip. Accepts latitude, longitude, optional speed, and timestamp. Used for real-time vehicle tracking.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1054,22 +2293,22 @@ const docTemplate = `{
                 "tags": [
                     "Locations"
                 ],
-                "summary": "Record truck location",
+                "summary": "Save trip location",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Truck ID",
+                        "description": "Trip ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Location data",
+                        "description": "Location data: lat (float64 required), lon (float64 required), speed (float64 optional), ts (RFC3339 string optional, defaults to now)",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/model.CreateLocationRequest"
                         }
                     }
                 ],
@@ -1084,7 +2323,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid truck ID or JSON format",
+                        "description": "Bad request - invalid trip ID or invalid lat/lon coordinates",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1104,9 +2343,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/trucks/{id}/locations": {
+        "/trips/{id}/locations": {
             "get": {
-                "description": "Retrieve location history for a specific truck with pagination support",
+                "description": "Retrieve the location history for a trip. Returns all saved GPS coordinates in descending order (latest first). Supports pagination via limit parameter.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1116,41 +2355,32 @@ const docTemplate = `{
                 "tags": [
                     "Locations"
                 ],
-                "summary": "Get truck location history",
+                "summary": "Get location history",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Truck ID",
+                        "description": "Trip ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "default": 50,
-                        "description": "Number of records (max 200)",
+                        "description": "Max number of locations to return (default 50, max 500)",
                         "name": "limit",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Location history data",
+                        "description": "Array of location records with lat, lon, speed, timestamp",
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid truck ID",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Truck not found",
+                        "description": "Bad request - invalid trip ID format",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1159,7 +2389,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error - failed to retrieve location history",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1172,6 +2402,254 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handler.DashboardStats": {
+            "type": "object",
+            "properties": {
+                "active_trucks": {
+                    "type": "integer"
+                },
+                "order_breakdown": {
+                    "type": "object",
+                    "properties": {
+                        "cancelled": {
+                            "type": "integer"
+                        },
+                        "completed": {
+                            "type": "integer"
+                        },
+                        "partial": {
+                            "type": "integer"
+                        },
+                        "pending": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "total_admins": {
+                    "type": "integer"
+                },
+                "total_orders": {
+                    "type": "integer"
+                },
+                "total_trucks": {
+                    "type": "integer"
+                },
+                "total_users": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.AdminSetupRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "full_name": {
+                    "description": "Full name untuk display (optional, default = username jika kosong)",
+                    "type": "string",
+                    "example": "System Administrator"
+                },
+                "password": {
+                    "description": "Admin password plain text (minimal 6 char)",
+                    "type": "string",
+                    "example": "admin123456"
+                },
+                "username": {
+                    "description": "Admin username (wajib, unique)",
+                    "type": "string",
+                    "example": "superadmin"
+                }
+            }
+        },
+        "model.CreateCustomerRequest": {
+            "type": "object",
+            "required": [
+                "company_name",
+                "phone",
+                "pic_name"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Sudirman No. 123, Jakarta"
+                },
+                "company_name": {
+                    "type": "string",
+                    "example": "PT. Nusantara Logistik"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "budi@nusantara.co.id"
+                },
+                "npwp": {
+                    "type": "string",
+                    "example": "01.234.567.8-901.000"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+628123456789"
+                },
+                "pic_name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                }
+            }
+        },
+        "model.CreateDriverRequest": {
+            "type": "object",
+            "required": [
+                "license_number",
+                "name",
+                "phone"
+            ],
+            "properties": {
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "license_number": {
+                    "type": "string",
+                    "example": "SIM-B-1234567"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Andi Wijaya"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+6281122334455"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "available"
+                }
+            }
+        },
+        "model.CreateLocationRequest": {
+            "type": "object",
+            "required": [
+                "lat",
+                "lon"
+            ],
+            "properties": {
+                "lat": {
+                    "type": "number",
+                    "example": -6.2
+                },
+                "lon": {
+                    "type": "number",
+                    "example": 106.816666
+                },
+                "speed": {
+                    "type": "number",
+                    "example": 45.5
+                },
+                "ts": {
+                    "type": "string",
+                    "example": "2026-04-19T08:30:00Z"
+                }
+            }
+        },
+        "model.CreateOrderRequest": {
+            "type": "object",
+            "required": [
+                "customer_id",
+                "destination",
+                "order_number",
+                "origin",
+                "total_containers"
+            ],
+            "properties": {
+                "customer_id": {
+                    "description": "Reference to customer",
+                    "type": "integer",
+                    "example": 1
+                },
+                "destination": {
+                    "description": "Shipment destination",
+                    "type": "string",
+                    "example": "Surabaya"
+                },
+                "order_number": {
+                    "description": "Unique order identifier",
+                    "type": "string",
+                    "example": "ORD-2026-0001"
+                },
+                "origin": {
+                    "description": "Shipment origin",
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "total_containers": {
+                    "description": "Number of containers",
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
+        "model.CreateTripRequest": {
+            "type": "object",
+            "required": [
+                "driver_id",
+                "order_id",
+                "trip_number",
+                "truck_id"
+            ],
+            "properties": {
+                "driver_id": {
+                    "description": "Reference to driver",
+                    "type": "integer",
+                    "example": 1
+                },
+                "order_id": {
+                    "description": "Reference to order",
+                    "type": "integer",
+                    "example": 1
+                },
+                "trip_number": {
+                    "description": "Unique trip identifier",
+                    "type": "string",
+                    "example": "TRIP-2026-001"
+                },
+                "truck_id": {
+                    "description": "Reference to truck",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "model.CreateTruckRequest": {
+            "type": "object",
+            "required": [
+                "plate_number",
+                "status",
+                "truck_type"
+            ],
+            "properties": {
+                "is_active": {
+                    "description": "Active status",
+                    "type": "boolean",
+                    "example": true
+                },
+                "plate_number": {
+                    "description": "Vehicle registration plate",
+                    "type": "string",
+                    "example": "B-1234-XYZ"
+                },
+                "status": {
+                    "description": "Status: available, in_use, maintenance",
+                    "type": "string",
+                    "example": "available"
+                },
+                "truck_type": {
+                    "description": "Type/model of truck",
+                    "type": "string",
+                    "example": "Fuso Box"
+                }
+            }
+        },
         "model.CreateUserRequest": {
             "type": "object",
             "required": [
@@ -1180,21 +2658,30 @@ const docTemplate = `{
                 "username"
             ],
             "properties": {
+                "full_name": {
+                    "description": "Full name untuk display (optional, default = username jika kosong)",
+                    "type": "string",
+                    "example": "John Sales Manager"
+                },
                 "is_active": {
-                    "description": "Default: true",
-                    "type": "boolean"
+                    "description": "Pointer untuk default true jika tidak dikirim",
+                    "type": "boolean",
+                    "example": true
                 },
                 "password": {
-                    "description": "Password plain text",
-                    "type": "string"
+                    "description": "Password plain text (akan di-hash dengan bcrypt)",
+                    "type": "string",
+                    "example": "password123456"
                 },
                 "role": {
-                    "description": "'admin' atau 'customer' (admin pilih)",
-                    "type": "string"
+                    "description": "Role: 'super_admin', 'admin_sales', atau 'admin_ops'",
+                    "type": "string",
+                    "example": "admin_sales"
                 },
                 "username": {
                     "description": "Username (wajib, unique)",
-                    "type": "string"
+                    "type": "string",
+                    "example": "john.sales"
                 }
             }
         },
@@ -1207,11 +2694,13 @@ const docTemplate = `{
             "properties": {
                 "password": {
                     "description": "Password plain text (bcrypt di server)",
-                    "type": "string"
+                    "type": "string",
+                    "example": "password123"
                 },
                 "username": {
                     "description": "Username (wajib)",
-                    "type": "string"
+                    "type": "string",
+                    "example": "superadmin"
                 }
             }
         },
@@ -1236,89 +2725,110 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Order": {
+        "model.UpdateCustomerRequest": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Sudirman No. 123, Jakarta"
                 },
-                "destination": {
-                    "type": "string"
+                "company_name": {
+                    "type": "string",
+                    "example": "PT. Nusantara Logistik"
                 },
-                "id": {
-                    "type": "integer"
+                "email": {
+                    "type": "string",
+                    "example": "budi@nusantara.co.id"
                 },
-                "order_number": {
-                    "type": "string"
+                "npwp": {
+                    "type": "string",
+                    "example": "01.234.567.8-901.000"
                 },
-                "origin": {
-                    "type": "string"
+                "phone": {
+                    "type": "string",
+                    "example": "+628123456789"
+                },
+                "pic_name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                }
+            }
+        },
+        "model.UpdateDriverRequest": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "license_number": {
+                    "type": "string",
+                    "example": "SIM-B-1234567"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Andi Wijaya"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+6281122334455"
                 },
                 "status": {
-                    "type": "string"
-                },
-                "truck_id": {
-                    "description": "Menggunakan pointer agar bisa NULL",
-                    "type": "integer"
+                    "type": "string",
+                    "example": "available"
                 }
             }
         },
-        "model.RegisterRequest": {
+        "model.UpdateOrderRequest": {
             "type": "object",
             "required": [
-                "password",
-                "username"
+                "status"
             ],
             "properties": {
+                "status": {
+                    "description": "New order status",
+                    "type": "string",
+                    "example": "pending"
+                }
+            }
+        },
+        "model.UpdateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "full_name": {
+                    "description": "Update display name (optional)",
+                    "type": "string",
+                    "example": "Bambang Suryanto"
+                },
                 "password": {
-                    "description": "Password plain text (minimal 6 char)",
-                    "type": "string"
-                },
-                "role": {
-                    "description": "'customer' (default), can request 'admin'",
-                    "type": "string"
-                },
-                "username": {
-                    "description": "Username (wajib, unique)",
-                    "type": "string"
+                    "description": "Update password (optional, minimal 6 karakter jika diisi)",
+                    "type": "string",
+                    "example": "newpassword123456"
                 }
             }
         },
-        "model.RegisterResponse": {
+        "model.UpdateTruckRequest": {
             "type": "object",
             "properties": {
-                "expires_at": {
-                    "description": "Unix timestamp kapan token expired",
-                    "type": "integer"
-                },
-                "token": {
-                    "description": "JWT token untuk langsung bisa login",
-                    "type": "string"
-                },
-                "user": {
-                    "description": "User yang baru dibuat",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/model.User"
-                        }
-                    ]
-                }
-            }
-        },
-        "model.Truck": {
-            "type": "object",
-            "properties": {
-                "driver_name": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
                 "is_active": {
-                    "type": "boolean"
+                    "description": "Update active status (optional)",
+                    "type": "boolean",
+                    "example": false
                 },
                 "plate_number": {
-                    "type": "string"
+                    "description": "Update plate number (optional)",
+                    "type": "string",
+                    "example": "B-1234-XYZ"
+                },
+                "status": {
+                    "description": "Update status (optional)",
+                    "type": "string",
+                    "example": "maintenance"
+                },
+                "truck_type": {
+                    "description": "Update truck type (optional)",
+                    "type": "string",
+                    "example": "Fuso Box"
                 }
             }
         },
@@ -1326,23 +2836,21 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Timestamp saat user dibuat",
+                    "type": "string"
+                },
+                "full_name": {
                     "type": "string"
                 },
                 "id": {
-                    "description": "Primary key auto-increment",
                     "type": "integer"
                 },
                 "is_active": {
-                    "description": "Untuk soft delete user",
                     "type": "boolean"
                 },
                 "role": {
-                    "description": "'admin' atau 'customer'",
                     "type": "string"
                 },
                 "username": {
-                    "description": "Unique username untuk login",
                     "type": "string"
                 }
             }

@@ -24,9 +24,9 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 // Melakukan INSERT ke tabel users dengan username, password_hash, role, is_active.
 // Returns: error jika ada constraint violation (duplicate username) atau database error.
 func (r *UserRepository) Create(ctx context.Context, u *model.User) error {
-	query := `INSERT INTO users (username, password_hash, role, is_active, created_at) 
-	          VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`
-	return r.db.QueryRowContext(ctx, query, u.Username, u.PasswordHash, u.Role, u.IsActive, time.Now()).Scan(&u.ID, &u.CreatedAt)
+	query := `INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) 
+	          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`
+	return r.db.QueryRowContext(ctx, query, u.Username, u.PasswordHash, u.FullName, u.Role, u.IsActive, time.Now()).Scan(&u.ID, &u.CreatedAt)
 }
 
 // GetByUsername mengambil user berdasarkan username.
@@ -34,7 +34,7 @@ func (r *UserRepository) Create(ctx context.Context, u *model.User) error {
 // Returns: pointer ke user object, atau error jika user tidak ditemukan.
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	u := &model.User{}
-	query := `SELECT id, username, password_hash, role, is_active, created_at FROM users WHERE username = $1`
+	query := `SELECT id, username, password_hash, full_name, role, is_active, created_at FROM users WHERE username = $1`
 	if err := r.db.GetContext(ctx, u, query, username); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
@@ -49,7 +49,7 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*m
 // Returns: pointer ke user object, atau error jika user tidak ditemukan.
 func (r *UserRepository) GetByID(ctx context.Context, id int) (*model.User, error) {
 	u := &model.User{}
-	query := `SELECT id, username, password_hash, role, is_active, created_at FROM users WHERE id = $1`
+	query := `SELECT id, username, password_hash, full_name, role, is_active, created_at FROM users WHERE id = $1`
 	if err := r.db.GetContext(ctx, u, query, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
@@ -64,11 +64,35 @@ func (r *UserRepository) GetByID(ctx context.Context, id int) (*model.User, erro
 // Returns: true jika ada minimal 1 admin user, false jika belum ada.
 func (r *UserRepository) AdminExists(ctx context.Context) (bool, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM users WHERE role = 'admin'`
+	query := `SELECT COUNT(*) FROM users WHERE role = 'super_admin'`
 	if err := r.db.GetContext(ctx, &count, query); err != nil {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// Count menghitung total jumlah user di database.
+// Digunakan untuk dashboard stats.
+// Returns: jumlah total user, atau error jika query gagal.
+func (r *UserRepository) Count(ctx context.Context) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM users`
+	if err := r.db.GetContext(ctx, &count, query); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// CountByRole menghitung jumlah user berdasarkan role.
+// Digunakan untuk dashboard stats breakdown (admin count).
+// Returns: jumlah user dengan role tertentu, atau error jika query gagal.
+func (r *UserRepository) CountByRole(ctx context.Context, role string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM users WHERE role = $1`
+	if err := r.db.GetContext(ctx, &count, query, role); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // GetAll mengambil semua user dari database.
@@ -76,9 +100,18 @@ func (r *UserRepository) AdminExists(ctx context.Context) (bool, error) {
 // Returns: slice of User objects atau error jika database error.
 func (r *UserRepository) GetAll(ctx context.Context) ([]*model.User, error) {
 	var users []*model.User
-	query := `SELECT id, username, password_hash, role, is_active, created_at FROM users ORDER BY created_at DESC`
+	query := `SELECT id, username, password_hash, full_name, role, is_active, created_at FROM users ORDER BY created_at DESC`
 	if err := r.db.SelectContext(ctx, &users, query); err != nil {
 		return nil, err
 	}
 	return users, nil
+}
+
+// Update memperbarui informasi user yang sudah ada (fullname, password, is_active).
+// Digunakan untuk admin update profile mereka atau super_admin update user lain.
+// Returns: error jika update gagal atau user tidak ditemukan.
+func (r *UserRepository) Update(ctx context.Context, u *model.User) error {
+	query := `UPDATE users SET password_hash = $1, full_name = $2, is_active = $3 WHERE id = $4`
+	_, err := r.db.ExecContext(ctx, query, u.PasswordHash, u.FullName, u.IsActive, u.ID)
+	return err
 }

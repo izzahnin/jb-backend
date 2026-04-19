@@ -32,29 +32,37 @@ func (h *Handler) RegisterTruckRoutes(r *gin.RouterGroup) {
 // @Tags Trucks
 // @Accept json
 // @Produce json
-// @Param truck body model.Truck true "Truck details" example({"plate_number":"B-1234-ABC","driver_name":"Budiman Hartono","is_active":true})
+// @Param truck body model.CreateTruckRequest true "Truck details: plate_number, truck_type, status, is_active"
 // @Success 201 {object} map[string]interface{} "Truck created"
 // @Failure 400 {object} map[string]string "Invalid input"
 // @Router /admin/trucks [post]
 // @Security Bearer
 func (h *Handler) CreateTruck(c *gin.Context) {
-	var input model.Truck
+	var input model.CreateTruckRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
 		return
 	}
 
+	// Create Truck struct for database operations (will set auto-generated fields)
+	truck := &model.Truck{
+		PlateNumber: input.PlateNumber,
+		TruckType:   input.TruckType,
+		Status:      input.Status,
+		IsActive:    input.IsActive,
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := h.TruckUsecase.RegisterTruck(ctx, &input); err != nil {
+	if err := h.TruckUsecase.RegisterTruck(ctx, truck); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Armada berhasil didaftarkan",
-		"data":    input,
+		"data":    truck,
 	})
 }
 
@@ -125,7 +133,7 @@ func (h *Handler) GetTruck(c *gin.Context) {
 
 // UpdateTruck mengupdate informasi armada (PATCH - partial update).
 // @Summary Partially update truck information
-// @Description Update truck details with PATCH support. Only provide fields you want to update (all fields are optional). plate_number and driver_name cannot be emptied - must remain non-empty after update.
+// @Description Update truck details with PATCH support. Only provide fields you want to update (all fields are optional).
 // @Tags Trucks
 // @Accept json
 // @Produce json
