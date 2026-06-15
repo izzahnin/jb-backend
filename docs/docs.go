@@ -60,11 +60,6 @@ const docTemplate = `{
                         "description": "Internal server error",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
                 }
             },
             "post": {
@@ -80,11 +75,6 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "Customers"
-                ],
-                "summary": "Create customer",
-                "parameters": [
                     {
                         "description": "Customer data: company_name, pic_name, phone, email, address, npwp",
                         "name": "body",
@@ -95,42 +85,42 @@ const docTemplate = `{
                         }
                     }
                 ],
-                "responses": {
-                    "201": {
-                        "description": "Customer created successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request - missing required fields",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                    "responses": {
+                        "201": {
+                            "description": "Customer created successfully",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": true
                             }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - missing or invalid JWT token",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                        },
+                        "400": {
+                            "description": "Bad request - missing required fields",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                        },
+                        "401": {
+                            "description": "Unauthorized - missing or invalid JWT token",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "500": {
+                            "description": "Internal server error",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
                         }
                     }
-                }
             }
         },
         "/admin/customers/{id}": {
@@ -800,7 +790,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Create a new order with customer, origin, destination, and total containers. Status auto-set to 'pending'. Admin ID extracted from JWT.",
+                "description": "Create a new order with customer, origin, destination, and total containers. total_containers must be 1. Status auto-set to 'pending'. Admin ID extracted from JWT.",
                 "consumes": [
                     "application/json"
                 ],
@@ -813,7 +803,7 @@ const docTemplate = `{
                 "summary": "Create new commercial order",
                 "parameters": [
                     {
-                        "description": "Order details: order_number (required), customer_id (required), origin (required), destination (required), total_containers (required)",
+                        "description": "Order details: customer_id (required), origin (required), destination (required), total_containers (required, must be 1)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -822,60 +812,60 @@ const docTemplate = `{
                         }
                     }
                 ],
-                "responses": {
-                    "201": {
-                        "description": "Order created successfully with id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request: invalid JSON or missing required fields",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                    "responses": {
+                        "201": {
+                            "description": "Order created successfully with id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": true
                             }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - missing or invalid JWT token",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                        },
+                        "400": {
+                            "description": "Bad request: invalid JSON or missing required fields",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden - admin_sales role required",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                        },
+                        "401": {
+                            "description": "Unauthorized - missing or invalid JWT token",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found - customer_id tidak ada",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                        },
+                        "403": {
+                            "description": "Forbidden - admin_sales role required",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable entity - failed to create order",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                        },
+                        "404": {
+                            "description": "Not found - customer_id tidak ada",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "422": {
+                            "description": "Unprocessable entity - failed to create order",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
                         }
                     }
-                }
             }
         },
         "/admin/orders/{id}": {
@@ -1152,14 +1142,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/orders/{id}/trips": {
+        "/admin/trips/{id}": {
             "get": {
                 "security": [
                     {
                         "Bearer": []
                     }
                 ],
-                "description": "Retrieve all trips (surat jalan) associated with a specific order ID. Shows trip number, status, truck, and driver assignments.",
+                "description": "Retrieve a single trip (surat jalan) by trip ID. Shows trip number, status, truck, and driver assignments.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1169,11 +1159,11 @@ const docTemplate = `{
                 "tags": [
                     "Trips"
                 ],
-                "summary": "List trips for order",
+                "summary": "Get trip by ID",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Order ID",
+                        "description": "Trip ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1181,14 +1171,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of trips for the order",
+                        "description": "Trip detail",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad request - invalid order ID format",
+                        "description": "Bad request - invalid trip ID format",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1364,6 +1354,57 @@ const docTemplate = `{
             }
         },
         "/admin/trips": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve all trips (surat jalan) with their status, truck, and driver assignments. Sorted by creation date (newest first).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "List all trips",
+                "responses": {
+                    "200": {
+                        "description": "List of all trips with count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_ops role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -1383,7 +1424,7 @@ const docTemplate = `{
                 "summary": "Create new trip",
                 "parameters": [
                     {
-                        "description": "Trip details: order_id (required), truck_id (required), driver_id (required), trip_number (required)",
+                        "description": "Trip details: order_id (required), truck_id (required), driver_id (required)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1394,7 +1435,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Trip created successfully with trip_number, status (assigned), truck and driver allocated",
+                        "description": "Trip created successfully with trip_number, status (assigned), truck and driver allocated. Only one trip is allowed per order.",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1578,15 +1619,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Trip start details: container_number (required), seal_number (required)",
+                        "description": "Trip start details: container_number and seal_number (both required)",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.StartTripRequest"
                         }
                     }
                 ],
@@ -1811,14 +1849,14 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Deactivate a truck from fleet",
+                "description": "Deactivate a truck from fleet\nDeactivate a truck by setting is_active to false (soft delete). Truck must not have any active trips.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Trucks"
                 ],
-                "summary": "Delete truck",
+                "summary": "Deactivate a truck",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1830,7 +1868,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Truck deleted",
+                        "description": "Truck deactivated",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1849,6 +1887,15 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Truck not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - truck still has active trips",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2166,7 +2213,7 @@ const docTemplate = `{
         },
         "/public/orders/{order_number}/track": {
             "get": {
-                "description": "Track order status and assignment without authentication. Returns order status, truck info, and real-time location",
+                "description": "Track order status and assignment without authentication. Returns order status, one trip, and its latest location.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2188,7 +2235,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Order tracking data with truck and location info",
+                        "description": "Order tracking data with one trip and its latest location",
                         "schema": {
                             "type": "object"
                         }
@@ -2557,7 +2604,6 @@ const docTemplate = `{
             "required": [
                 "customer_id",
                 "destination",
-                "order_number",
                 "origin",
                 "total_containers"
             ],
@@ -2571,11 +2617,6 @@ const docTemplate = `{
                     "description": "Shipment destination",
                     "type": "string",
                     "example": "Surabaya"
-                },
-                "order_number": {
-                    "description": "Unique order identifier",
-                    "type": "string",
-                    "example": "ORD-2026-0001"
                 },
                 "origin": {
                     "description": "Shipment origin",
@@ -2594,7 +2635,6 @@ const docTemplate = `{
             "required": [
                 "driver_id",
                 "order_id",
-                "trip_number",
                 "truck_id"
             ],
             "properties": {
@@ -2607,11 +2647,6 @@ const docTemplate = `{
                     "description": "Reference to order",
                     "type": "integer",
                     "example": 1
-                },
-                "trip_number": {
-                    "description": "Unique trip identifier",
-                    "type": "string",
-                    "example": "TRIP-2026-001"
                 },
                 "truck_id": {
                     "description": "Reference to truck",
@@ -2722,6 +2757,25 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.User"
                         }
                     ]
+                }
+            }
+        },
+        "model.StartTripRequest": {
+            "type": "object",
+            "required": [
+                "container_number",
+                "seal_number"
+            ],
+            "properties": {
+                "container_number": {
+                    "description": "Container number",
+                    "type": "string",
+                    "example": "CONT-123456"
+                },
+                "seal_number": {
+                    "description": "Seal number",
+                    "type": "string",
+                    "example": "SEAL-789012"
                 }
             }
         },

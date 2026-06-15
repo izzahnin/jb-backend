@@ -76,6 +76,7 @@ CREATE TABLE trips (
     trip_number VARCHAR(50) UNIQUE NOT NULL,
     container_number VARCHAR(50),
     seal_number VARCHAR(50),
+    CONSTRAINT uq_trips_order_id UNIQUE (order_id),
     status VARCHAR(20) DEFAULT 'pickup' CHECK (status IN ('pickup', 'in_transit', 'delivered', 'cancelled')),
     start_time TIMESTAMP WITH TIME ZONE,
     end_time TIMESTAMP WITH TIME ZONE,
@@ -94,6 +95,40 @@ CREATE TABLE locations (
 
 -- Default partition keeps writes safe before monthly partitions are created.
 CREATE TABLE locations_default PARTITION OF locations DEFAULT;
+
+CREATE OR REPLACE FUNCTION set_order_number()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.id IS NULL THEN
+        NEW.id := nextval(pg_get_serial_sequence('orders', 'id'));
+    END IF;
+
+    NEW.order_number := 'ORD-' || lpad(NEW.id::text, 3, '0');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_orders_set_order_number
+BEFORE INSERT ON orders
+FOR EACH ROW
+EXECUTE FUNCTION set_order_number();
+
+CREATE OR REPLACE FUNCTION set_trip_number()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.id IS NULL THEN
+        NEW.id := nextval(pg_get_serial_sequence('trips', 'id'));
+    END IF;
+
+    NEW.trip_number := 'TRIP-' || lpad(NEW.id::text, 3, '0');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_trips_set_trip_number
+BEFORE INSERT ON trips
+FOR EACH ROW
+EXECUTE FUNCTION set_trip_number();
 
 -- 8. Audit logs for compliance and traceability.
 CREATE TABLE audit_logs (

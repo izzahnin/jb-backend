@@ -24,15 +24,10 @@ func NewOrderUsecase(orderRepo *repository.OrderRepository, customerRepo *reposi
 
 
 // CreateOrder membuat order baru dengan validasi business rules.
-// Validasi: order_number, origin, destination tidak boleh kosong.
-// Business rule: status akan auto-set ke "pending" dan truck_id dimulai dari nil.
+// Validasi: origin, destination, customer, dan total containers tidak boleh kosong/invalid.
+// Business rule: order_number dibuat otomatis berurutan dan status akan auto-set ke "pending".
 // Returns: error jika validasi gagal atau database error.
 func (u *OrderUsecase) CreateOrder(ctx context.Context, o *model.Order) error {
-	// Validasi: order_number wajib diisi
-	if o.OrderNumber == "" {
-		return ErrOrderNumberRequired
-	}
-
 	// Validasi: origin wajib diisi
 	if o.Origin == "" {
 		return ErrOrderOriginRequired
@@ -47,7 +42,7 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, o *model.Order) error {
 		return ErrOrderCustomerRequired
 	}
 
-	if o.TotalContainers <= 0 {
+	if o.TotalContainers != 1 {
 		return ErrOrderTotalContainersInvalid
 	}
 
@@ -56,6 +51,7 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, o *model.Order) error {
 	}
 
 	o.Status = "pending"
+	o.IsActive = true
 	o.OrderDate = time.Now().UTC()
 
 	// Simpan ke database
@@ -168,6 +164,10 @@ func (u *OrderUsecase) Cancel(ctx context.Context, id int) error {
 		return ErrOrderCannotCancel
 	}
 
-	// Update status ke "cancelled"
-	return u.orderRepo.UpdateStatus(ctx, id, "cancelled")
+	if err := u.orderRepo.UpdateStatus(ctx, id, "cancelled"); err != nil {
+		return err
+	}
+
+	// Soft delete agar tidak tampil di list aktif, tapi data tetap bisa dipulihkan.
+	return u.orderRepo.Delete(ctx, id)
 }

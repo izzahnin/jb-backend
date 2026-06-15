@@ -9,11 +9,10 @@ Panduan lengkap untuk setup, testing, dan troubleshooting endpoints auth & user 
 ### Step 1: Start Backend
 ```bash
 cd jb-backend
-docker-compose up -d postgres redis
-go run cmd/api/main.go
+docker compose up -d --build
 ```
 
-Wait for: `Server running on :8080`
+Wait for: `Starting server on http://localhost:8080`
 
 ### Step 2: Setup Admin (First Time Only)
 
@@ -419,7 +418,7 @@ Setelah semua test passed:
 
 ## 📞 Support Resources
 
-- **Swagger UI:** `http://localhost:8080/swagger/index.html`
+- **Swagger UI:** `http://localhost:8080/swagger/docs`
 - **Backend Logs:** `docker logs jbm_api`
 - **Database Logs:** `docker logs jbm_postgres`
 - **Redis Logs:** `docker logs jbm_redis`

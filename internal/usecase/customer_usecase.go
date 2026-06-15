@@ -33,6 +33,7 @@ func (u *CustomerUsecase) Create(ctx context.Context, req *model.CreateCustomerR
 		Email:       req.Email,
 		Address:     req.Address,
 		NPWP:        req.NPWP,
+		IsActive:    true,
 	}
 
 	if err := u.repo.Create(ctx, customer); err != nil {

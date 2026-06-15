@@ -184,7 +184,7 @@ Content-Type: application/json
 | Code | Meaning | Endpoints |
 |------|---------|-----------|
 | 200 | OK | GET /admin/users, POST /auth/logout, PATCH /admin/profile |
-| 201 | Created | POST /admin/setup, POST /admin/users, POST /auth/login |
+| 201 | Created | POST /admin/setup, POST /admin/users |
 
 ### 4xx Client Error
 | Code | Meaning | When |
@@ -353,7 +353,7 @@ Value: Bearer {{token}}
 
 ## Additional Resources
 
-- **Swagger/OpenAPI:** Access at `http://localhost:8080/swagger/index.html` after `go run cmd/api/main.go`
+- **Swagger/OpenAPI:** Access at `http://localhost:8080/swagger/docs`
 - **Backend README:** `README.md` untuk setup backend
 - **Postman:** Free client untuk test API → https://www.postman.com/downloads/
 

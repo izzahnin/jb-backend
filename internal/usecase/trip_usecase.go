@@ -44,8 +44,13 @@ func (u *TripUsecase) CreateTrip(ctx context.Context, trip *model.Trip, actorUse
 	if trip.DriverID <= 0 {
 		return ErrDriverInvalidID
 	}
-	if trip.TripNumber == "" {
-		return ErrTripNumberRequired
+
+	existingTrips, err := u.tripRepo.CountByOrderID(ctx, trip.OrderID)
+	if err != nil {
+		return err
+	}
+	if existingTrips > 0 {
+		return ErrTripAlreadyExistsForOrder
 	}
 
 	order, err := u.orderRepo.GetByID(ctx, trip.OrderID)
@@ -209,11 +214,11 @@ func (u *TripUsecase) CompleteTrip(ctx context.Context, tripID int, actorUserID 
 	return nil
 }
 
-func (u *TripUsecase) GetByOrderID(ctx context.Context, orderID int) ([]model.Trip, error) {
+func (u *TripUsecase) GetByOrderID(ctx context.Context, orderID int) (*model.Trip, error) {
 	if orderID <= 0 {
 		return nil, ErrOrderInvalidID
 	}
-	return u.tripRepo.FetchByOrderID(ctx, orderID)
+	return u.tripRepo.GetByOrderID(ctx, orderID)
 }
 
 func (u *TripUsecase) GetByID(ctx context.Context, id int) (*model.Trip, error) {
@@ -221,4 +226,8 @@ func (u *TripUsecase) GetByID(ctx context.Context, id int) (*model.Trip, error) 
 		return nil, ErrTripInvalidID
 	}
 	return u.tripRepo.GetByID(ctx, id)
+}
+
+func (u *TripUsecase) GetAll(ctx context.Context) ([]model.Trip, error) {
+	return u.tripRepo.FetchAll(ctx)
 }

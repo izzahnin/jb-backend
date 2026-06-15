@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	_ "github.com/izzahnin/jalur-berlian-backend/docs"
 	"github.com/izzahnin/jalur-berlian-backend/internal/handler"
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
@@ -59,6 +60,11 @@ type Application struct {
 	Redis     *database.RedisClient
 	Router    *gin.Engine
 	Handler   *handler.Handler
+}
+
+func init() {
+	// Reject unknown JSON keys so PATCH requests with misspelled fields do not silently no-op.
+	binding.EnableDecoderDisallowUnknownFields = true
 }
 
 // loadEnvFiles loads environment variables from .env files
@@ -155,10 +161,10 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 
 	// Initialize Usecases (Business Logic Layer)
 	fmt.Println("🔧 Initializing usecases...")
-	truckUsecase := usecase.NewTruckUsecase(truckRepo)
+	truckUsecase := usecase.NewTruckUsecase(truckRepo, tripRepo)
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, customerRepo)
 	tripUsecase := usecase.NewTripUsecase(tripRepo, orderRepo, truckRepo, driverRepo, auditRepo)
-	locationUsecase := usecase.NewLocationUsecase(locRepo)
+	locationUsecase := usecase.NewLocationUsecase(locRepo, tripRepo)
 	customerUsecase := usecase.NewCustomerUsecase(customerRepo)
 	driverUsecase := usecase.NewDriverUsecase(driverRepo)
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)

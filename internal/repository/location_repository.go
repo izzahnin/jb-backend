@@ -11,7 +11,7 @@ import (
 )
 
 type LocationRepository interface {
-	SaveLocation(ctx context.Context, tripID int, lat, lon float64, speed *float64, ts time.Time) error
+	SaveLocation(ctx context.Context, tripID int, lat, lon float64, ts time.Time) error
 	GetLatestLocation(ctx context.Context, tripID int) (*model.Location, error)
 	GetHistory(ctx context.Context, tripID int, limit int) ([]model.Location, error)
 }
@@ -24,16 +24,16 @@ func NewPostgresLocationRepo(db *sqlx.DB) LocationRepository {
 	return &postgresLocationRepo{db: db}
 }
 
-func (r *postgresLocationRepo) SaveLocation(ctx context.Context, tripID int, lat, lon float64, speed *float64, ts time.Time) error {
-	query := `INSERT INTO locations (trip_id, latitude, longitude, speed, created_at)
-	          VALUES ($1, $2, $3, $4, $5)`
-	_, err := r.db.ExecContext(ctx, query, tripID, lat, lon, speed, ts)
+func (r *postgresLocationRepo) SaveLocation(ctx context.Context, tripID int, lat, lon float64, ts time.Time) error {
+	query := `INSERT INTO locations (trip_id, latitude, longitude, created_at)
+	          VALUES ($1, $2, $3, $4)`
+	_, err := r.db.ExecContext(ctx, query, tripID, lat, lon, ts)
 	return err
 }
 
 func (r *postgresLocationRepo) GetLatestLocation(ctx context.Context, tripID int) (*model.Location, error) {
 	var loc model.Location
-	query := `SELECT id, trip_id, latitude, longitude, speed, created_at
+	query := `SELECT id, trip_id, latitude, longitude, created_at
 	          FROM locations
 	          WHERE trip_id = $1
 	          ORDER BY created_at DESC
@@ -53,7 +53,7 @@ func (r *postgresLocationRepo) GetHistory(ctx context.Context, tripID int, limit
 	}
 
 	var locations []model.Location
-	query := `SELECT id, trip_id, latitude, longitude, speed, created_at
+	query := `SELECT id, trip_id, latitude, longitude, created_at
 	          FROM locations
 	          WHERE trip_id = $1
 	          ORDER BY created_at DESC

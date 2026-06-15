@@ -1150,7 +1150,7 @@
                 }
             }
         },
-        "/admin/orders/{id}/trips": {
+        "/admin/trips/{id}": {
             "get": {
                 "security": [
                     {
@@ -1167,7 +1167,7 @@
                 "tags": [
                     "Trips"
                 ],
-                "summary": "List trips for order",
+                "summary": "Get trip by ID",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1362,6 +1362,57 @@
             }
         },
         "/admin/trips": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve all trips (surat jalan) with their status, truck, and driver assignments. Sorted by creation date (newest first).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "List all trips",
+                "responses": {
+                    "200": {
+                        "description": "List of all trips with count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid JWT token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - admin_ops role required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -1576,15 +1627,12 @@
                         "required": true
                     },
                     {
-                        "description": "Trip start details: container_number (required), seal_number (required)",
+                        "description": "Trip start details: container_number and seal_number (both required)",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.StartTripRequest"
                         }
                     }
                 ],
@@ -1809,14 +1857,14 @@
                         "Bearer": []
                     }
                 ],
-                "description": "Deactivate a truck from fleet",
+                "description": "Deactivate a truck from fleet\nDeactivate a truck by setting is_active to false (soft delete). Truck must not have any active trips.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Trucks"
                 ],
-                "summary": "Delete truck",
+                "summary": "Deactivate a truck",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1828,7 +1876,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Truck deleted",
+                        "description": "Truck deactivated",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1847,6 +1895,15 @@
                     },
                     "404": {
                         "description": "Truck not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - truck still has active trips",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2720,6 +2777,25 @@
                             "$ref": "#/definitions/model.User"
                         }
                     ]
+                }
+            }
+        },
+        "model.StartTripRequest": {
+            "type": "object",
+            "required": [
+                "container_number",
+                "seal_number"
+            ],
+            "properties": {
+                "container_number": {
+                    "description": "Container number",
+                    "type": "string",
+                    "example": "CONT-123456"
+                },
+                "seal_number": {
+                    "description": "Seal number",
+                    "type": "string",
+                    "example": "SEAL-789012"
                 }
             }
         },

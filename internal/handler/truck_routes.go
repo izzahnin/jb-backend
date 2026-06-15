@@ -187,12 +187,17 @@ func (h *Handler) UpdateTruck(c *gin.Context) {
 // DeleteTruck medeaktifkan armada.
 // @Summary Delete truck
 // @Description Deactivate a truck from fleet
+// DeleteTruck menonaktifkan armada (soft delete dengan is_active = false).
+// Validasi: truck tidak boleh memiliki trip aktif (status pickup atau in_transit).
+// @Summary Deactivate a truck
+// @Description Deactivate a truck by setting is_active to false (soft delete). Truck must not have any active trips.
 // @Tags Trucks
 // @Produce json
 // @Param id path int true "Truck ID"
-// @Success 200 {object} map[string]string "Truck deleted"
+// @Success 200 {object} map[string]string "Truck deactivated"
 // @Failure 400 {object} map[string]string "Invalid ID"
 // @Failure 404 {object} map[string]string "Truck not found"
+// @Failure 409 {object} map[string]string "Conflict - truck still has active trips"
 // @Router /admin/trucks/{id} [delete]
 // @Security Bearer
 func (h *Handler) DeleteTruck(c *gin.Context) {
@@ -209,6 +214,10 @@ func (h *Handler) DeleteTruck(c *gin.Context) {
 	if err := h.TruckUsecase.Deactivate(ctx, id); err != nil {
 		if err == usecase.ErrTruckInvalidID {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err == usecase.ErrTruckHasActiveTrips {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

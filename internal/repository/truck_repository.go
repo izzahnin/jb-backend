@@ -32,7 +32,7 @@ func (r *TruckRepository) Create(ctx context.Context, t *model.Truck) error {
 // Returns: slice dari truck objects, atau error jika query gagal.
 func (r *TruckRepository) FetchAll(ctx context.Context) ([]model.Truck, error) {
 	var trucks []model.Truck
-	query := `SELECT id, plate_number, truck_type, status, is_active, created_at FROM trucks ORDER BY created_at DESC`
+	query := `SELECT id, plate_number, truck_type, status, is_active, created_at FROM trucks WHERE is_active = true ORDER BY created_at DESC`
 	
 	if err := r.db.SelectContext(ctx, &trucks, query); err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (r *TruckRepository) FetchAll(ctx context.Context) ([]model.Truck, error) {
 // Returns: slice dari truck objects, atau error jika query gagal.
 func (r *TruckRepository) FetchAllWithPagination(ctx context.Context, limit, offset int) ([]model.Truck, error) {
 	var trucks []model.Truck
-	query := `SELECT id, plate_number, truck_type, status, is_active, created_at FROM trucks ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+	query := `SELECT id, plate_number, truck_type, status, is_active, created_at FROM trucks WHERE is_active = true ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 	
 	if err := r.db.SelectContext(ctx, &trucks, query, limit, offset); err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (r *TruckRepository) FetchAllWithPagination(ctx context.Context, limit, off
 // Returns: jumlah total truck, atau error jika query gagal.
 func (r *TruckRepository) Count(ctx context.Context) (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM trucks`
+	query := `SELECT COUNT(*) FROM trucks WHERE is_active = true`
 	if err := r.db.GetContext(ctx, &count, query); err != nil {
 		return 0, err
 	}
@@ -81,7 +81,7 @@ func (r *TruckRepository) CountActive(ctx context.Context) (int, error) {
 // Returns: pointer ke truck object, atau error jika truck tidak ditemukan atau query gagal.
 func (r *TruckRepository) GetByID(ctx context.Context, id int) (*model.Truck, error) {
 	t := &model.Truck{}
-	query := `SELECT id, plate_number, truck_type, status, is_active, created_at FROM trucks WHERE id = $1`
+	query := `SELECT id, plate_number, truck_type, status, is_active, created_at FROM trucks WHERE id = $1 AND is_active = true`
 	if err := r.db.GetContext(ctx, t, query, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("truck not found")
@@ -104,7 +104,7 @@ func (r *TruckRepository) Update(ctx context.Context, id int, t *model.Truck) er
 // Soft delete digunakan agar tidak menghilangkan data historis.
 // Returns: error jika truck tidak ditemukan atau query gagal.
 func (r *TruckRepository) Delete(ctx context.Context, id int) error {
-	query := `UPDATE trucks SET is_active = false WHERE id = $1`
+	query := `UPDATE trucks SET is_active = false WHERE id = $1 AND is_active = true`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }

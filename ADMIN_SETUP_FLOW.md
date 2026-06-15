@@ -7,7 +7,7 @@
 | Role | Permissions | Can Create Users | Use Case |
 |------|------------|-----------------|----------|
 | **super_admin** | • Manage all users<br>• Create orders<br>• Manage trips & trucks | ✅ YES | System administrator |
-| **admin_sales** | • Create & view orders<br>• View trips for their orders | ❌ NO | Sales team member |
+| **admin_sales** | • Create & view orders | ❌ NO | Sales team member |
 | **admin_ops** | • Manage trucks<br>• Create & manage trips<br>• Track GPS locations | ❌ NO | Operations team member |
 
 ---
@@ -237,11 +237,13 @@ The JWT token contains claims with user information for authorization checks:
 - `POST /admin/orders` (create orders - sales permission)
 - `GET /admin/orders` (view orders - sales permission)
 - `POST /admin/trips` (create trips - ops permission)
+- `GET /admin/trips` (list trips - ops permission)
 - `GET /admin/orders/:id/trips` (view trips - ops permission)
 - `PATCH /admin/trips/:id/start` (start trip - ops permission)
 - `PATCH /admin/trips/:id/deliver` (complete trip - ops permission)
 - `GET /admin/trucks` (view trucks - ops permission)
 - `POST /admin/trucks` (create truck - ops permission)
+- `DELETE /admin/trucks/:id` (deactivate truck - ops permission)
 - `GET /admin/dashboard/stats` (view dashboard - all admin can access)
 
 ### Which endpoint can admin_sales access?
@@ -264,7 +266,9 @@ The JWT token contains claims with user information for authorization checks:
 - `GET /admin/trucks` (view trucks)
 - `POST /admin/trucks` (create trucks)
 - `PATCH /admin/trucks/:id` (update truck)
+- `DELETE /admin/trucks/:id` (deactivate truck)
 - `POST /admin/trips` (create trips)
+- `GET /admin/trips` (list trips)
 - `GET /admin/orders/:id/trips` (view trips for order)
 - `PATCH /admin/trips/:id/start` (start trip - dispatch)
 - `PATCH /admin/trips/:id/deliver` (complete trip)

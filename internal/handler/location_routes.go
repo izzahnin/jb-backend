@@ -20,14 +20,16 @@ func (h *Handler) RegisterLocationRoutes(r *gin.RouterGroup) {
 
 // PostLocation menyimpan GPS coordinate untuk trip real-time tracking.
 // @Summary Save trip location
-// @Description Save current GPS location for a trip. Accepts latitude, longitude, optional speed, and timestamp. Used for real-time vehicle tracking.
+// @Description Save current GPS location for a trip. Accepts latitude, longitude, and optional timestamp. Used for real-time vehicle tracking.
 // @Tags Locations
 // @Accept json
 // @Produce json
 // @Param id path int true "Trip ID"
-// @Param body body model.CreateLocationRequest true "Location data: lat (float64 required), lon (float64 required), speed (float64 optional), ts (RFC3339 string optional, defaults to now)"
+// @Param body body model.CreateLocationRequest true "Location data: lat (float64 required), lon (float64 required), ts (RFC3339 string optional, defaults to now)"
 // @Success 200 {object} map[string]string "Location saved successfully"
 // @Failure 400 {object} map[string]string "Bad request - invalid trip ID or invalid lat/lon coordinates"
+// @Failure 404 {object} map[string]string "Not found - trip tidak ditemukan"
+// @Failure 409 {object} map[string]string "Conflict - trip belum in_transit atau sudah selesai"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /trips/{id}/location [post]
 func (h *Handler) PostLocation(c *gin.Context) {
@@ -53,10 +55,14 @@ func (h *Handler) PostLocation(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := h.LocationUsecase.SaveLocation(ctx, tripID, input.Lat, input.Lon, input.Speed, ts); err != nil {
+	if err := h.LocationUsecase.SaveLocation(ctx, tripID, input.Lat, input.Lon, ts); err != nil {
 		switch err {
 		case usecase.ErrLocationInvalidTripID, usecase.ErrLocationInvalidCoords:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case usecase.ErrTripNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case usecase.ErrLocationTripNotInTransit:
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
@@ -74,7 +80,7 @@ func (h *Handler) PostLocation(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Trip ID"
 // @Param limit query int false "Max number of locations to return (default 50, max 500)"
-// @Success 200 {object} map[string]interface{} "Array of location records with lat, lon, speed, timestamp"
+// @Success 200 {object} map[string]interface{} "Array of location records with lat, lon, timestamp"
 // @Failure 400 {object} map[string]string "Bad request - invalid trip ID format"
 // @Failure 500 {object} map[string]string "Internal server error - failed to retrieve location history"
 // @Router /trips/{id}/locations [get]
@@ -115,7 +121,7 @@ func (h *Handler) GetLocationHistory(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Trip ID"
-// @Success 200 {object} map[string]interface{} "Latest location record with lat, lon, speed, timestamp"
+// @Success 200 {object} map[string]interface{} "Latest location record with lat, lon, timestamp"
 // @Failure 400 {object} map[string]string "Bad request - invalid trip ID format"
 // @Failure 404 {object} map[string]string "Not found - no location recorded for this trip"
 // @Failure 500 {object} map[string]string "Internal server error - failed to retrieve latest location"

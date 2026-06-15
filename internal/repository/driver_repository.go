@@ -31,6 +31,7 @@ func (r *DriverRepository) FetchAll(ctx context.Context) ([]model.Driver, error)
 	var drivers []model.Driver
 	query := `SELECT id, name, license_number, phone, status, is_active
 	          FROM drivers
+	          WHERE is_active = true
 	          ORDER BY id DESC`
 	if err := r.db.SelectContext(ctx, &drivers, query); err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (r *DriverRepository) GetByID(ctx context.Context, id int) (*model.Driver, 
 	var d model.Driver
 	query := `SELECT id, name, license_number, phone, status, is_active
 	          FROM drivers
-	          WHERE id = $1`
+	          WHERE id = $1 AND is_active = true`
 	if err := r.db.GetContext(ctx, &d, query, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("driver not found")
@@ -59,7 +60,7 @@ func (r *DriverRepository) Update(ctx context.Context, id int, d *model.Driver) 
 	              phone = $3,
 	              status = $4,
 	              is_active = $5
-	          WHERE id = $6`
+	          WHERE id = $6 AND is_active = true`
 	_, err := r.db.ExecContext(ctx, query,
 		d.Name, d.LicenseNumber, d.Phone, d.Status, d.IsActive, id,
 	)
@@ -67,7 +68,7 @@ func (r *DriverRepository) Update(ctx context.Context, id int, d *model.Driver) 
 }
 
 func (r *DriverRepository) Delete(ctx context.Context, id int) error {
-	query := `UPDATE drivers SET is_active = false WHERE id = $1`
+	query := `UPDATE drivers SET is_active = false WHERE id = $1 AND is_active = true`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }

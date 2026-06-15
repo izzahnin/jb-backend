@@ -13,6 +13,7 @@ var (
 	ErrTruckRequired      = errors.New("truck wajib diisikan")
 	ErrTruckPlateRequired = errors.New("nomor plat truck wajib diisi")
 	ErrTruckTypeRequired  = errors.New("tipe truck wajib diisi")
+	ErrTruckHasActiveTrips = errors.New("truck masih memiliki trip aktif, tidak bisa dinonaktifkan")
 
 	// Driver-related errors
 	ErrDriverInvalidID = errors.New("driver id tidak valid")
@@ -36,7 +37,7 @@ var (
 	ErrOrderCustomerRequired       = errors.New("customer wajib diisi")
 	ErrOrderOriginRequired         = errors.New("lokasi asal wajib diisi")
 	ErrOrderDestinationRequired    = errors.New("lokasi tujuan wajib diisi")
-	ErrOrderTotalContainersInvalid = errors.New("total kontainer minimal 1")
+	ErrOrderTotalContainersInvalid = errors.New("total kontainer harus 1")
 	ErrOrderInvalidStatus          = errors.New("status order tidak valid")
 	ErrOrderInvalidStatusTransition = errors.New("transisi status tidak diizinkan")
 	ErrOrderCannotCancel           = errors.New("order tidak bisa dibatalkan dari status ini")
@@ -44,6 +45,7 @@ var (
 	// Trip-related errors
 	ErrTripInvalidID               = errors.New("trip id tidak valid")
 	ErrTripNotFound                = errors.New("trip tidak ditemukan")
+	ErrTripAlreadyExistsForOrder   = errors.New("order ini sudah memiliki trip")
 	ErrTripNumberRequired          = errors.New("nomor surat jalan wajib diisi")
 	ErrTripInvalidStatus           = errors.New("status trip tidak valid")
 	ErrTripInvalidStatusTransition = errors.New("transisi status trip tidak diizinkan")
@@ -53,6 +55,8 @@ var (
 	// Location-related errors
 	ErrLocationInvalidTripID = errors.New("trip id untuk location tidak valid")
 	ErrLocationInvalidCoords  = errors.New("koordinat latitude/longitude tidak valid")
+	ErrLocationTripNotInTransit = errors.New("lokasi hanya bisa dikirim saat trip sedang in_transit")
+	ErrLocationTripDelivered = errors.New("lokasi tidak bisa dikirim untuk trip yang sudah delivered")
 
 	// Validation errors
 	ErrValidationFailed = errors.New("validasi data gagal")

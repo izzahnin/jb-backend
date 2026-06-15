@@ -9,14 +9,15 @@ import (
 )
 
 type LocationUsecase struct {
-	repo repository.LocationRepository
+	repo     repository.LocationRepository
+	tripRepo *repository.TripRepository
 }
 
-func NewLocationUsecase(repo repository.LocationRepository) *LocationUsecase {
-	return &LocationUsecase{repo: repo}
+func NewLocationUsecase(repo repository.LocationRepository, tripRepo *repository.TripRepository) *LocationUsecase {
+	return &LocationUsecase{repo: repo, tripRepo: tripRepo}
 }
 
-func (u *LocationUsecase) SaveLocation(ctx context.Context, tripID int, lat, lon float64, speed *float64, ts time.Time) error {
+func (u *LocationUsecase) SaveLocation(ctx context.Context, tripID int, lat, lon float64, ts time.Time) error {
 	if tripID <= 0 {
 		return ErrLocationInvalidTripID
 	}
@@ -25,7 +26,20 @@ func (u *LocationUsecase) SaveLocation(ctx context.Context, tripID int, lat, lon
 		return ErrLocationInvalidCoords
 	}
 
-	return u.repo.SaveLocation(ctx, tripID, lat, lon, speed, ts)
+	trip, err := u.tripRepo.GetByID(ctx, tripID)
+	if err != nil || trip == nil {
+		return ErrTripNotFound
+	}
+
+	if trip.Status == "pickup" {
+		return ErrLocationTripNotInTransit
+	}
+
+	if trip.Status == "delivered" {
+		return ErrLocationTripDelivered
+	}
+
+	return u.repo.SaveLocation(ctx, tripID, lat, lon, ts)
 }
 
 func (u *LocationUsecase) GetLatest(ctx context.Context, tripID int) (*model.Location, error) {

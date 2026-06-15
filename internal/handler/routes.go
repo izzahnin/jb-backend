@@ -12,12 +12,12 @@ import (
 // - MIDDLEWARE SETUP    : Admin-protected routes & role-based groups (JWT + role middleware)
 // - FEATURE LAYERS      : Feature-based CRUD operations (using middleware groups)
 //
-// Total ~35 endpoints tersegmentasi berdasarkan:
+// Total ~36 endpoints tersegmentasi berdasarkan:
 // 1. Authentication level  : public, protected, role-restricted
 // 2. Business capability   : auth, user, customer, driver, truck, order, trip, location
 // 3. Access control        : no-auth, admin-all, super-admin, ops-team, sales-team
 //
-// Route Groups (Total: 11 groups, ~35 endpoints):
+// Route Groups (Total: 11 groups, ~36 endpoints):
 //  1. PUBLIC ROUTES (2)           - POST /auth/login, /auth/logout
 //  2. ADMIN SETUP (1)             - POST /admin/setup (one-time, public)
 //  3. ADMIN DASHBOARD (2)         - GET /admin/dashboard/stats, PATCH /admin/profile
@@ -26,7 +26,7 @@ import (
 //  6. DRIVER MGMT (5)             - CRUD /admin/drivers (all admin roles)
 //  7. TRUCK MGMT (5)              - CRUD /admin/trucks (ops team)
 //  8. ORDER MGMT (5)              - CRUD /admin/orders (sales team)
-//  9. TRIP MGMT (4)               - CRUD /admin/trips (ops team)
+//  9. TRIP MGMT (5)               - CRUD /admin/trips (ops team) + GET /admin/trips/:id
 // 10. LOCATION TRACKING (3)       - GET/POST /trips/:id/locations (ops team)
 // 11. PUBLIC TRACKING (1)         - GET /order/:order_number/status (public)
 func (h *Handler) RegisterAllRoutes(r *gin.Engine) {
@@ -108,7 +108,7 @@ func (h *Handler) RegisterAllRoutes(r *gin.Engine) {
 	// ===================================================================
 	// LAYER 11: TRIP MANAGEMENT (Operations team only)
 	// ===================================================================
-	// Endpoints: POST/GET /admin/trips, POST /admin/trips/:id/start, /deliver
+	// Endpoints: GET/POST /admin/trips, GET /admin/trips/:id, PATCH /admin/trips/:id/start, /deliver (5 endpoints)
 	h.RegisterTripRoutes(opsRoutes)
 
 	// ===================================================================

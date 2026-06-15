@@ -27,7 +27,7 @@ func (h *Handler) RegisterOrderRoutes(r *gin.RouterGroup) {
 // @Tags Orders
 // @Accept json
 // @Produce json
-// @Param body body model.CreateOrderRequest true "Order details: order_number (required), customer_id (required), origin (required), destination (required), total_containers (required)"
+// @Param body body model.CreateOrderRequest true "Order details: customer_id (required), origin (required), destination (required), total_containers (required)"
 // @Success 201 {object} map[string]interface{} "Order created successfully with id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status"
 // @Failure 400 {object} map[string]string "Bad request: invalid JSON or missing required fields"
 // @Failure 401 {object} map[string]string "Unauthorized - missing or invalid JWT token"
@@ -56,7 +56,6 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	// Create Order struct for database operations (will set auto-generated fields)
 	order := &model.Order{
-		OrderNumber:     input.OrderNumber,
 		CustomerID:      input.CustomerID,
 		Origin:          input.Origin,
 		Destination:     input.Destination,
@@ -69,7 +68,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	if err := h.OrderUsecase.CreateOrder(ctx, order); err != nil {
 		switch err {
-		case usecase.ErrOrderNumberRequired, usecase.ErrOrderOriginRequired, usecase.ErrOrderDestinationRequired,
+		case usecase.ErrOrderOriginRequired, usecase.ErrOrderDestinationRequired,
 			usecase.ErrOrderCustomerRequired, usecase.ErrOrderTotalContainersInvalid:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case usecase.ErrCustomerNotFound:

@@ -13,19 +13,48 @@ import (
 
 // RegisterTripRoutes handles operational execution (surat jalan) managed by Admin Ops.
 func (h *Handler) RegisterTripRoutes(r *gin.RouterGroup) {
+	r.GET("/admin/trips", h.ListTrips)
 	r.POST("/admin/trips", h.CreateTrip)
-	r.GET("/admin/orders/:id/trips", h.ListTripsByOrder)
+	r.GET("/admin/trips/:id", h.GetTrip)
 	r.PATCH("/admin/trips/:id/start", h.StartTrip)
 	r.PATCH("/admin/trips/:id/deliver", h.CompleteTrip)
 }
 
+// ListTrips mengambil daftar semua trips (admin_ops only).
+// @Summary List all trips
+// @Description Retrieve all trips (surat jalan) with their status, truck, and driver assignments. Sorted by creation date (newest first).
+// @Tags Trips
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List of all trips with count"
+// @Failure 401 {object} map[string]string "Unauthorized - missing or invalid JWT token"
+// @Failure 403 {object} map[string]string "Forbidden - admin_ops role required"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /admin/trips [get]
+// @Security Bearer
+func (h *Handler) ListTrips(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	trips, err := h.TripUsecase.GetAll(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Trips retrieved successfully",
+		"count":   len(trips),
+		"data":    trips,
+	})
+}
+
 // CreateTrip membuat trip baru untuk order (admin_ops only).
 // @Summary Create new trip
-// @Description Create a new trip (surat jalan) for an order. Requires order_id, truck_id, driver_id, and trip_number. Allocates truck and driver for the order.
+// @Description Create a new trip (surat jalan) for an order. Requires order_id, truck_id, and driver_id. Trip number is generated automatically. Allocates truck and driver for the order.
 // @Tags Trips
 // @Accept json
 // @Produce json
-// @Param body body model.CreateTripRequest true "Trip details: order_id (required), truck_id (required), driver_id (required), trip_number (required)"
+// @Param body body model.CreateTripRequest true "Trip details: order_id (required), truck_id (required), driver_id (required)"
 // @Success 201 {object} map[string]interface{} "Trip created successfully with trip_number, status (assigned), truck and driver allocated"
 // @Failure 400 {object} map[string]string "Bad request - invalid JSON or missing required fields"
 // @Failure 401 {object} map[string]string "Unauthorized - missing or invalid JWT token"
@@ -55,10 +84,9 @@ func (h *Handler) CreateTrip(c *gin.Context) {
 
 	// Create Trip struct for database operations (will set auto-generated fields)
 	trip := &model.Trip{
-		OrderID:    input.OrderID,
-		TruckID:    input.TruckID,
-		DriverID:   input.DriverID,
-		TripNumber: input.TripNumber,
+		OrderID:  input.OrderID,
+		TruckID:  input.TruckID,
+		DriverID: input.DriverID,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -66,7 +94,7 @@ func (h *Handler) CreateTrip(c *gin.Context) {
 
 	if err := h.TripUsecase.CreateTrip(ctx, trip, actorUserID); err != nil {
 		switch err {
-		case usecase.ErrOrderInvalidID, usecase.ErrTruckInvalidID, usecase.ErrDriverInvalidID, usecase.ErrTripNumberRequired:
+		case usecase.ErrOrderInvalidID, usecase.ErrTruckInvalidID, usecase.ErrDriverInvalidID:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case usecase.ErrOrderNotFound, usecase.ErrTruckNotFound, usecase.ErrDriverNotFound:
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -81,41 +109,46 @@ func (h *Handler) CreateTrip(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Trip berhasil dibuat", "data": trip})
 }
 
-// ListTripsByOrder mengambil daftar trips untuk satu order (admin_ops only).
-// @Summary List trips for order
-// @Description Retrieve all trips (surat jalan) associated with a specific order ID. Shows trip number, status, truck, and driver assignments.
+// GetTrip mengambil detail trip berdasarkan ID (admin_ops only).
+// @Summary Get trip by ID
+// @Description Retrieve a single trip (surat jalan) by trip ID. Shows trip number, status, truck, and driver assignments.
 // @Tags Trips
 // @Accept json
 // @Produce json
-// @Param id path int true "Order ID"
-// @Success 200 {object} map[string]interface{} "List of trips for the order"
-// @Failure 400 {object} map[string]string "Bad request - invalid order ID format"
+// @Param id path int true "Trip ID"
+// @Success 200 {object} map[string]interface{} "Trip detail"
+// @Failure 400 {object} map[string]string "Bad request - invalid trip ID format"
 // @Failure 401 {object} map[string]string "Unauthorized - missing or invalid JWT token"
 // @Failure 403 {object} map[string]string "Forbidden - admin_ops role required"
+// @Failure 404 {object} map[string]string "Not found - trip tidak ditemukan"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /admin/orders/{id}/trips [get]
+// @Router /admin/trips/{id} [get]
 // @Security Bearer
-func (h *Handler) ListTripsByOrder(c *gin.Context) {
-	orderID, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) GetTrip(c *gin.Context) {
+	tripID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": usecase.ErrOrderInvalidID.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": usecase.ErrTripInvalidID.Error()})
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	trips, err := h.TripUsecase.GetByOrderID(ctx, orderID)
+	trip, err := h.TripUsecase.GetByID(ctx, tripID)
 	if err != nil {
-		if err == usecase.ErrOrderInvalidID {
+		if err == usecase.ErrTripInvalidID {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if trip == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": usecase.ErrTripNotFound.Error()})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{"data": trips})
+	c.JSON(http.StatusOK, gin.H{"data": trip})
 }
 
 // StartTrip memulai trip dan mengubah status ke in_transit (admin_ops only).
@@ -125,7 +158,7 @@ func (h *Handler) ListTripsByOrder(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Trip ID"
-// @Param body body map[string]string true "Trip start details: container_number (required), seal_number (required)"
+// @Param body body model.StartTripRequest true "Trip start details: container_number and seal_number (both required)"
 // @Success 200 {object} map[string]string "Trip started, status changed to in_transit"
 // @Failure 400 {object} map[string]string "Bad request - invalid ID or missing container/seal numbers"
 // @Failure 401 {object} map[string]string "Unauthorized - missing or invalid JWT token"
@@ -142,10 +175,7 @@ func (h *Handler) StartTrip(c *gin.Context) {
 		return
 	}
 
-	var input struct {
-		ContainerNumber string `json:"container_number"`
-		SealNumber      string `json:"seal_number"`
-	}
+	var input model.StartTripRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
 		return

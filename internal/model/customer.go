@@ -11,6 +11,7 @@ type Customer struct {
 	Email       string    `db:"email" json:"email" example:"budi@nusantara.co.id"`
 	Address     string    `db:"address" json:"address" example:"Jl. Sudirman No. 123, Jakarta"`
 	NPWP        string    `db:"npwp" json:"npwp" example:"01.234.567.8-901.000"`
+	IsActive    bool      `db:"is_active" json:"is_active" example:"true"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
 }
 

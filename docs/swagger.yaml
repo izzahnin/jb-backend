@@ -237,6 +237,20 @@ definitions:
         - $ref: '#/definitions/model.User'
         description: User yang login (untuk UI)
     type: object
+  model.StartTripRequest:
+    properties:
+      container_number:
+        description: Container number
+        example: CONT-123456
+        type: string
+      seal_number:
+        description: Seal number
+        example: SEAL-789012
+        type: string
+    required:
+    - container_number
+    - seal_number
+    type: object
   model.UpdateCustomerRequest:
     properties:
       address:
@@ -1088,7 +1102,7 @@ paths:
       summary: Update order status
       tags:
       - Orders
-  /admin/orders/{id}/trips:
+  /admin/trips/{id}:
     get:
       consumes:
       - application/json
@@ -1134,7 +1148,7 @@ paths:
             type: object
       security:
       - Bearer: []
-      summary: List trips for order
+      summary: Get trip by ID
       tags:
       - Trips
   /admin/profile:
@@ -1236,6 +1250,40 @@ paths:
       tags:
       - User Management
   /admin/trips:
+    get:
+      description: Retrieve all trips (surat jalan) with their status, truck, and
+        driver assignments. Sorted by creation date (newest first).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all trips with count
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized - missing or invalid JWT token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - admin_ops role required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: List all trips
+      tags:
+      - Trips
     post:
       consumes:
       - application/json
@@ -1374,15 +1422,12 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 'Trip start details: container_number (required), seal_number
-          (required)'
+      - description: 'Trip start details: container_number and seal_number (both required)'
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/model.StartTripRequest'
       produces:
       - application/json
       responses:
@@ -1496,7 +1541,9 @@ paths:
       - Trucks
   /admin/trucks/{id}:
     delete:
-      description: Deactivate a truck from fleet
+      description: |-
+        Deactivate a truck from fleet
+        Deactivate a truck by setting is_active to false (soft delete). Truck must not have any active trips.
       parameters:
       - description: Truck ID
         in: path
@@ -1507,7 +1554,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Truck deleted
+          description: Truck deactivated
           schema:
             additionalProperties:
               type: string
@@ -1524,9 +1571,15 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "409":
+          description: Conflict - truck still has active trips
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - Bearer: []
-      summary: Delete truck
+      summary: Deactivate a truck
       tags:
       - Trucks
     get:

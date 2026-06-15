@@ -2,19 +2,24 @@ package usecase
 
 import (
 	"context"
+	"strings"
 
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
 )
 
 type TruckUsecase struct {
-	repo *repository.TruckRepository
+	repo     *repository.TruckRepository
+	tripRepo *repository.TripRepository
 }
 
 // NewTruckUsecase membuat instance baru dari TruckUsecase.
 // Menerima dependency injection repository untuk akses data truck.
-func NewTruckUsecase(repo *repository.TruckRepository) *TruckUsecase {
-	return &TruckUsecase{repo: repo}
+func NewTruckUsecase(repo *repository.TruckRepository, tripRepo *repository.TripRepository) *TruckUsecase {
+	return &TruckUsecase{
+		repo:     repo,
+		tripRepo: tripRepo,
+	}
 }
 
 // RegisterTruck menambahkan truck baru ke sistem dengan validasi.
@@ -35,6 +40,12 @@ func (u *TruckUsecase) RegisterTruck(ctx context.Context, t *model.Truck) error 
 	t.IsActive = true
 	if t.Status == "" {
 		t.Status = "available"
+	}
+	t.Status = normalizeTruckStatus(t.Status)
+
+	validStatus := map[string]bool{"available": true, "on_duty": true, "maintenance": true}
+	if !validStatus[t.Status] {
+		return ErrValidationFailed
 	}
 
 	return u.repo.Create(ctx, t)
@@ -76,7 +87,7 @@ func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruc
 	}
 
 	if req.Status != nil {
-		existing.Status = *req.Status
+		existing.Status = normalizeTruckStatus(*req.Status)
 	}
 
 	// is_active: update hanya jika pointer diisi
@@ -101,12 +112,30 @@ func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruc
 }
 
 // Deactivate melakukan soft delete truck dengan mengeset is_active = false.
-// Melakukan validasi: ID harus > 0.
-// Catatan: Dapat ditambahkan validasi tsb. truck tidak sedang mengerjakan order aktif.
+// Melakukan validasi: ID harus > 0 dan truck tidak sedang mengerjakan trip aktif.
+// Jika truck masih punya trip aktif (status: pickup atau in_transit), deactivate akan ditolak.
 // Returns: error jika validasi gagal atau database error.
 func (u *TruckUsecase) Deactivate(ctx context.Context, id int) error {
 	if id <= 0 {
 		return ErrTruckInvalidID
 	}
+
+	// Cek apakah truck masih punya trip aktif
+	activeTripsCount, err := u.tripRepo.CountActiveByTruckID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if activeTripsCount > 0 {
+		return ErrTruckHasActiveTrips
+	}
+
 	return u.repo.Delete(ctx, id)
+}
+
+func normalizeTruckStatus(status string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(status))
+	if trimmed == "in_use" {
+		return "on_duty"
+	}
+	return trimmed
 }

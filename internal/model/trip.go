@@ -8,19 +8,25 @@ type Trip struct {
 	OrderID         int        `db:"order_id" json:"order_id" example:"1"` // Reference to order
 	TruckID         int        `db:"truck_id" json:"truck_id" example:"1"` // Reference to truck
 	DriverID        int        `db:"driver_id" json:"driver_id" example:"1"` // Reference to driver
-	TripNumber      string     `db:"trip_number" json:"trip_number" example:"TRIP-2026-001"` // Unique trip identifier
+	TripNumber      string     `db:"trip_number" json:"trip_number" example:"TRIP-001"` // Unique trip identifier
 	ContainerNumber string     `db:"container_number" json:"container_number" example:"CONT-123456"` // Set when trip starts (not in create request)
 	SealNumber      string     `db:"seal_number" json:"seal_number" example:"SEAL-789012"` // Set when trip starts (not in create request)
-	Status          string     `db:"status" json:"status" example:"assigned"` // Auto-set: assigned → in_transit → delivered (not in request)
+	Status          string     `db:"status" json:"status" example:"pickup"` // Auto-set: pickup → in_transit → delivered (not in request)
 	StartTime       *time.Time `db:"start_time" json:"start_time"` // Set when trip starts (not in create request)
 	EndTime         *time.Time `db:"end_time" json:"end_time"` // Set when trip completes (not in request)
+	IsActive        bool       `db:"is_active" json:"is_active" example:"true"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
 }
 
 // CreateTripRequest is the request DTO for creating a new trip (only user-input fields)
 type CreateTripRequest struct {
-	OrderID    int    `json:"order_id" example:"1" binding:"required"`     // Reference to order
-	TruckID    int    `json:"truck_id" example:"1" binding:"required"`     // Reference to truck
-	DriverID   int    `json:"driver_id" example:"1" binding:"required"`    // Reference to driver
-	TripNumber string `json:"trip_number" example:"TRIP-2026-001" binding:"required"` // Unique trip identifier
+	OrderID  int `json:"order_id" example:"1" binding:"required"`  // Reference to order
+	TruckID  int `json:"truck_id" example:"1" binding:"required"`  // Reference to truck
+	DriverID int `json:"driver_id" example:"1" binding:"required"` // Reference to driver
+}
+
+// StartTripRequest is the request DTO for starting a trip (set container_number and seal_number)
+type StartTripRequest struct {
+	ContainerNumber string `json:"container_number" example:"CONT-123456" binding:"required"` // Container number
+	SealNumber      string `json:"seal_number" example:"SEAL-789012" binding:"required"`      // Seal number
 }
