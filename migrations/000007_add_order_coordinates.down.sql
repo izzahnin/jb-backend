@@ -1,0 +1,5 @@
+ALTER TABLE orders
+  DROP COLUMN IF EXISTS origin_lat,
+  DROP COLUMN IF EXISTS origin_lng,
+  DROP COLUMN IF EXISTS dest_lat,
+  DROP COLUMN IF EXISTS dest_lng;

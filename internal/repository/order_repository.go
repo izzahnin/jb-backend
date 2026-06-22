@@ -22,14 +22,18 @@ func NewOrderRepository(db *sqlx.DB) *OrderRepository {
 // Status akan di-set ke value yang dikirim dari usecase (biasanya "pending").
 // Returns: error jika ada constraint violation (duplicate order_number) atau database error.
 func (r *OrderRepository) CreateOrder(ctx context.Context, o *model.Order) error {
-	query := `INSERT INTO orders (customer_id, admin_id, origin, destination, total_containers, order_date, status, is_active)
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	query := `INSERT INTO orders (customer_id, admin_id, origin, destination, origin_lat, origin_lng, dest_lat, dest_lng, total_containers, order_date, status, is_active)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	          RETURNING id, order_number, order_date`
 	return r.db.QueryRowContext(ctx, query,
 		o.CustomerID,
 		o.AdminID,
 		o.Origin,
 		o.Destination,
+		o.OriginLat,
+		o.OriginLng,
+		o.DestLat,
+		o.DestLng,
 		o.TotalContainers,
 		o.OrderDate,
 		o.Status,
@@ -42,7 +46,7 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, o *model.Order) error
 // Returns: slice dari order pointers, atau error jika query gagal.
 func (r *OrderRepository) FetchAll(ctx context.Context) ([]*model.Order, error) {
 	var orders []*model.Order
-	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status, is_active
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, origin_lat, origin_lng, dest_lat, dest_lng, total_containers, order_date, status, is_active, created_at, updated_at
 						FROM orders WHERE is_active = true ORDER BY order_date DESC`
 	
 	if err := r.db.SelectContext(ctx, &orders, query); err != nil {
@@ -56,7 +60,7 @@ func (r *OrderRepository) FetchAll(ctx context.Context) ([]*model.Order, error) 
 // Returns: slice dari order pointers, atau error jika query gagal.
 func (r *OrderRepository) FetchAllWithPagination(ctx context.Context, limit, offset int) ([]*model.Order, error) {
 	var orders []*model.Order
-	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status, is_active
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, origin_lat, origin_lng, dest_lat, dest_lng, total_containers, order_date, status, is_active, created_at, updated_at
 						FROM orders WHERE is_active = true ORDER BY order_date DESC LIMIT $1 OFFSET $2`
 	
 	if err := r.db.SelectContext(ctx, &orders, query, limit, offset); err != nil {
@@ -81,7 +85,7 @@ func (r *OrderRepository) Count(ctx context.Context) (int, error) {
 // Returns: pointer ke order object, atau error jika order tidak ditemukan atau query gagal.
 func (r *OrderRepository) GetByID(ctx context.Context, id int) (*model.Order, error) {
 	o := &model.Order{}
-	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status, is_active
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, origin_lat, origin_lng, dest_lat, dest_lng, total_containers, order_date, status, is_active, created_at, updated_at
 						FROM orders WHERE id = $1 AND is_active = true`
 	if err := r.db.GetContext(ctx, o, query, id); err != nil {
 		if err == sql.ErrNoRows {
@@ -97,7 +101,7 @@ func (r *OrderRepository) GetByID(ctx context.Context, id int) (*model.Order, er
 // Returns: pointer ke order object, atau error jika tidak ditemukan atau query gagal.
 func (r *OrderRepository) GetByOrderNumber(ctx context.Context, orderNumber string) (*model.Order, error) {
 	o := &model.Order{}
-	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, total_containers, order_date, status, is_active
+	query := `SELECT id, order_number, customer_id, admin_id, origin, destination, origin_lat, origin_lng, dest_lat, dest_lng, total_containers, order_date, status, is_active, created_at, updated_at
 						FROM orders WHERE order_number = $1 AND is_active = true`
 	if err := r.db.GetContext(ctx, o, query, orderNumber); err != nil {
 		if err == sql.ErrNoRows {
@@ -112,7 +116,7 @@ func (r *OrderRepository) GetByOrderNumber(ctx context.Context, orderNumber stri
 // Status harus valid sesuai CHECK constraint di database.
 // Returns: error jika order tidak ditemukan atau query gagal.
 func (r *OrderRepository) UpdateStatus(ctx context.Context, id int, newStatus string) error {
-	query := `UPDATE orders SET status = $1 WHERE id = $2 AND is_active = true`
+	query := `UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND is_active = true`
 	_, err := r.db.ExecContext(ctx, query, newStatus, id)
 	return err
 }

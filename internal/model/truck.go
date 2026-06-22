@@ -9,7 +9,12 @@ type Truck struct {
 	TruckType   string    `db:"truck_type" json:"truck_type" example:"Fuso Box"` // Type/model of truck
 	Status      string    `db:"status" json:"status" example:"available"` // Status: available, in_use, maintenance
 	IsActive    bool      `db:"is_active" json:"is_active" example:"true"` // Active status
-	CreatedAt   time.Time `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	UpdatedAt   *time.Time `db:"updated_at" json:"updated_at,omitempty"`
+	CreatedBy      *int    `db:"created_by" json:"created_by,omitempty"`
+	UpdatedBy      *int    `db:"updated_by" json:"updated_by,omitempty"`
+	CreatedByName  *string `db:"created_by_name" json:"created_by_name,omitempty"`
+	UpdatedByName  *string `db:"updated_by_name" json:"updated_by_name,omitempty"`
 }
 
 // CreateTruckRequest adalah request body untuk membuat truck baru (hanya user-input fields)
@@ -28,4 +33,5 @@ type UpdateTruckRequest struct {
 	TruckType   *string `json:"truck_type" example:"Fuso Box"` // Update truck type (optional)
 	Status      *string `json:"status" example:"maintenance"` // Update status (optional)
 	IsActive    *bool   `json:"is_active" example:"false"` // Update active status (optional)
+	UpdatedBy   *int    `json:"-"` // Set by handler from JWT, not from request body
 }

@@ -100,10 +100,15 @@ func (h *Handler) RegisterAllRoutes(r *gin.Engine) {
 	h.RegisterTruckRoutes(opsRoutes)
 
 	// ===================================================================
-	// LAYER 10: ORDER MANAGEMENT (Sales team only)
+	// LAYER 10: ORDER MANAGEMENT
+	// READ endpoints: all admin roles (needed by dispatch page for admin_ops)
+	// WRITE endpoints: sales team only
 	// ===================================================================
-	// Endpoints: POST/GET/PATCH/DELETE /admin/orders (5 CRUD operations)
-	h.RegisterOrderRoutes(salesRoutes)
+	adminRoutes.GET("/admin/orders", h.ListOrders)
+	adminRoutes.GET("/admin/orders/:id", h.GetOrder)
+	salesRoutes.POST("/admin/orders", h.CreateOrder)
+	salesRoutes.PATCH("/admin/orders/:id", h.UpdateOrderStatus)
+	salesRoutes.DELETE("/admin/orders/:id", h.CancelOrder)
 
 	// ===================================================================
 	// LAYER 11: TRIP MANAGEMENT (Operations team only)

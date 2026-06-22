@@ -51,9 +51,11 @@ func (h *Handler) PublicOrderTracking(c *gin.Context) {
 	var detailTripPayload any
 	if trip != nil {
 		latestLoc, _ := h.LocationUsecase.GetLatest(ctx, trip.ID)
+		historyLoc, _ := h.LocationUsecase.GetHistory(ctx, trip.ID, 20)
 		detailTripPayload = gin.H{
-			"trip":            trip,
-			"latest_location": latestLoc,
+			"trip":             trip,
+			"latest_location":  latestLoc,
+			"location_history": historyLoc,
 		}
 	}
 

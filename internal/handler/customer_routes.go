@@ -40,10 +40,13 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	adminID := userID.(int)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	customer, err := h.CustomerUsecase.Create(ctx, &input)
+	customer, err := h.CustomerUsecase.Create(ctx, &input, &adminID)
 	if err != nil {
 		switch err {
 		case usecase.ErrCustomerCompanyRequired, usecase.ErrCustomerPICRequired, usecase.ErrCustomerPhoneRequired:
@@ -148,10 +151,13 @@ func (h *Handler) UpdateCustomer(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	adminID := userID.(int)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	customer, err := h.CustomerUsecase.Update(ctx, id, &input)
+	customer, err := h.CustomerUsecase.Update(ctx, id, &input, &adminID)
 	if err != nil {
 		switch err {
 		case usecase.ErrCustomerInvalidID, usecase.ErrCustomerCompanyRequired, usecase.ErrCustomerPICRequired, usecase.ErrCustomerPhoneRequired:

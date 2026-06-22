@@ -1,0 +1,3 @@
+ALTER TABLE trucks    ADD COLUMN IF NOT EXISTS updated_by INT REFERENCES users(id);
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_by INT REFERENCES users(id);
+ALTER TABLE drivers   ADD COLUMN IF NOT EXISTS updated_by INT REFERENCES users(id);

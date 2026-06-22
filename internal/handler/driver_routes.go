@@ -40,10 +40,13 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	adminID := userID.(int)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	driver, err := h.DriverUsecase.Create(ctx, &input)
+	driver, err := h.DriverUsecase.Create(ctx, &input, &adminID)
 	if err != nil {
 		switch err {
 		case usecase.ErrDriverNameRequired, usecase.ErrDriverLicenseRequired, usecase.ErrDriverPhoneRequired:
@@ -148,16 +151,21 @@ func (h *Handler) UpdateDriver(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	adminID := userID.(int)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	driver, err := h.DriverUsecase.Update(ctx, id, &input)
+	driver, err := h.DriverUsecase.Update(ctx, id, &input, &adminID)
 	if err != nil {
 		switch err {
 		case usecase.ErrDriverInvalidID, usecase.ErrDriverNameRequired, usecase.ErrDriverLicenseRequired, usecase.ErrDriverPhoneRequired:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case usecase.ErrDriverNotFound:
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case usecase.ErrDriverOnActiveTrip:
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}

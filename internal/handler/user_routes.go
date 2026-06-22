@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,7 @@ import (
 func (h *Handler) RegisterUserRoutes(r *gin.RouterGroup) {
 	r.GET("/admin/users", h.ListUsers)
 	r.POST("/admin/users", h.CreateUser)
+	r.DELETE("/admin/users/:id", h.DeleteUser)
 }
 
 // CreateUser membuat user baru (super_admin-only).
@@ -151,4 +153,34 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		"message": "Profile berhasil diperbarui",
 		"data":    user,
 	})
+}
+
+// DeleteUser menonaktifkan user (soft delete) berdasarkan ID (super_admin only).
+func (h *Handler) DeleteUser(c *gin.Context) {
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+
+	// Cegah self-delete
+	callerID, _ := c.Get("user_id")
+	if callerID.(int) == targetID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak dapat menonaktifkan akun sendiri"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.UserUsecase.DeactivateUser(ctx, targetID); err != nil {
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User berhasil dinonaktifkan"})
 }

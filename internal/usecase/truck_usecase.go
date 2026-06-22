@@ -77,6 +77,8 @@ func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruc
 		return err
 	}
 
+	originalStatus := existing.Status
+
 	// Merge updates: hanya update field yang diisi (pointer tidak nil)
 	if req.PlateNumber != nil {
 		existing.PlateNumber = *req.PlateNumber
@@ -106,6 +108,19 @@ func (u *TruckUsecase) Update(ctx context.Context, id int, req *model.UpdateTruc
 	validStatus := map[string]bool{"available": true, "on_duty": true, "maintenance": true}
 	if !validStatus[existing.Status] {
 		return ErrValidationFailed
+	}
+
+	existing.UpdatedBy = req.UpdatedBy
+
+	// Block status change away from on_duty if truck has active trip
+	if originalStatus == "on_duty" && existing.Status != "on_duty" {
+		count, err := u.tripRepo.CountActiveByTruckID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrTruckOnActiveTrip
+		}
 	}
 
 	return u.repo.Update(ctx, id, existing)

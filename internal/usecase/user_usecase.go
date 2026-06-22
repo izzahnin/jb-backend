@@ -121,6 +121,15 @@ func (u *UserUsecase) ListUsers(ctx context.Context) ([]*model.User, error) {
 	return users, nil
 }
 
+// DeactivateUser menonaktifkan user berdasarkan ID (super_admin only).
+func (u *UserUsecase) DeactivateUser(ctx context.Context, id int) error {
+	err := u.userRepo.Deactivate(ctx, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // UpdateProfile memungkinkan admin update profile mereka sendiri (fullname dan/atau password).
 // Flow:
 // 1. Validasi user exists

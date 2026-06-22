@@ -8,14 +8,15 @@ import (
 )
 
 type DriverUsecase struct {
-	repo *repository.DriverRepository
+	repo     *repository.DriverRepository
+	tripRepo *repository.TripRepository
 }
 
-func NewDriverUsecase(repo *repository.DriverRepository) *DriverUsecase {
-	return &DriverUsecase{repo: repo}
+func NewDriverUsecase(repo *repository.DriverRepository, tripRepo *repository.TripRepository) *DriverUsecase {
+	return &DriverUsecase{repo: repo, tripRepo: tripRepo}
 }
 
-func (u *DriverUsecase) Create(ctx context.Context, req *model.CreateDriverRequest) (*model.Driver, error) {
+func (u *DriverUsecase) Create(ctx context.Context, req *model.CreateDriverRequest, createdBy *int) (*model.Driver, error) {
 	if req.Name == "" {
 		return nil, ErrDriverNameRequired
 	}
@@ -32,6 +33,7 @@ func (u *DriverUsecase) Create(ctx context.Context, req *model.CreateDriverReque
 		Phone:         req.Phone,
 		Status:        req.Status,
 		IsActive:      req.IsActive,
+		CreatedBy:     createdBy,
 	}
 
 	if driver.Status == "" {
@@ -59,7 +61,7 @@ func (u *DriverUsecase) GetByID(ctx context.Context, id int) (*model.Driver, err
 	return u.repo.GetByID(ctx, id)
 }
 
-func (u *DriverUsecase) Update(ctx context.Context, id int, req *model.UpdateDriverRequest) (*model.Driver, error) {
+func (u *DriverUsecase) Update(ctx context.Context, id int, req *model.UpdateDriverRequest, updatedBy *int) (*model.Driver, error) {
 	if id <= 0 {
 		return nil, ErrDriverInvalidID
 	}
@@ -68,6 +70,8 @@ func (u *DriverUsecase) Update(ctx context.Context, id int, req *model.UpdateDri
 	if err != nil {
 		return nil, err
 	}
+
+	originalStatus := existing.Status
 
 	if req.Name != nil {
 		existing.Name = *req.Name
@@ -94,6 +98,19 @@ func (u *DriverUsecase) Update(ctx context.Context, id int, req *model.UpdateDri
 	if existing.Phone == "" {
 		return nil, ErrDriverPhoneRequired
 	}
+
+	// Block status change away from on_duty if driver has active trip
+	if originalStatus == "on_duty" && existing.Status != "on_duty" {
+		count, err := u.tripRepo.CountActiveByDriverID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return nil, ErrDriverOnActiveTrip
+		}
+	}
+
+	existing.UpdatedBy = updatedBy
 
 	if err := u.repo.Update(ctx, id, existing); err != nil {
 		return nil, err

@@ -78,6 +78,7 @@ func (u *TripUsecase) CreateTrip(ctx context.Context, trip *model.Trip, actorUse
 	}
 
 	trip.Status = "pickup"
+	trip.CreatedBy = &actorUserID
 	if err := u.tripRepo.Create(ctx, trip); err != nil {
 		return err
 	}
@@ -130,7 +131,7 @@ func (u *TripUsecase) StartTrip(ctx context.Context, tripID int, containerNumber
 	}
 
 	oldValue, _ := json.Marshal(trip)
-	if err := u.tripRepo.UpdateDispatch(ctx, tripID, containerNumber, sealNumber, time.Now().UTC()); err != nil {
+	if err := u.tripRepo.UpdateDispatch(ctx, tripID, containerNumber, sealNumber, time.Now().UTC(), &actorUserID); err != nil {
 		return err
 	}
 	trip.ContainerNumber = containerNumber
@@ -169,7 +170,7 @@ func (u *TripUsecase) CompleteTrip(ctx context.Context, tripID int, actorUserID 
 
 	oldValue, _ := json.Marshal(trip)
 	now := time.Now().UTC()
-	if err := u.tripRepo.MarkDelivered(ctx, tripID, now); err != nil {
+	if err := u.tripRepo.MarkDelivered(ctx, tripID, now, &actorUserID); err != nil {
 		return err
 	}
 	if err := u.truckRepo.SetStatus(ctx, trip.TruckID, "available"); err != nil {

@@ -46,11 +46,13 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	DBSource   string
-	RedisAddr  string
-	JWTSecret  string
-	Port       string
-	GinMode    string
+	DBSource      string
+	RedisAddr     string
+	RedisPassword string
+	JWTSecret     string
+	Port          string
+	GinMode       string
+	CORSOrigins   []string
 }
 
 // Application holds all dependencies
@@ -87,12 +89,23 @@ func loadEnvFiles() {
 
 // LoadConfig loads environment variables with validation
 func LoadConfig() (*Config, error) {
+	// Parse CORS origins from comma-separated env var
+	corsOrigins := []string{"http://localhost:3000", "http://localhost:3001"}
+	if envOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); envOrigins != "" {
+		corsOrigins = strings.Split(envOrigins, ",")
+		for i := range corsOrigins {
+			corsOrigins[i] = strings.TrimSpace(corsOrigins[i])
+		}
+	}
+
 	cfg := &Config{
-		DBSource:  os.Getenv("DB_SOURCE"),
-		RedisAddr: os.Getenv("REDIS_ADDR"),
-		JWTSecret: os.Getenv("JWT_SECRET"),
-		Port:      os.Getenv("PORT"),
-		GinMode:   os.Getenv("GIN_MODE"),
+		DBSource:      os.Getenv("DB_SOURCE"),
+		RedisAddr:     os.Getenv("REDIS_ADDR"),
+		RedisPassword: os.Getenv("REDIS_PASSWORD"),
+		JWTSecret:     os.Getenv("JWT_SECRET"),
+		Port:          os.Getenv("PORT"),
+		GinMode:       os.Getenv("GIN_MODE"),
+		CORSOrigins:   corsOrigins,
 	}
 
 	// Validate required configuration
@@ -137,7 +150,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 
 	// Initialize Redis
 	fmt.Println("🔧 Initializing Redis connection...")
-	redis := database.NewRedis(cfg.RedisAddr, "", 0)
+	redis := database.NewRedis(cfg.RedisAddr, cfg.RedisPassword, 0)
 	
 	// Verify Redis connection
 	if err := redis.Ping(ctx); err != nil {
@@ -166,7 +179,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	tripUsecase := usecase.NewTripUsecase(tripRepo, orderRepo, truckRepo, driverRepo, auditRepo)
 	locationUsecase := usecase.NewLocationUsecase(locRepo, tripRepo)
 	customerUsecase := usecase.NewCustomerUsecase(customerRepo)
-	driverUsecase := usecase.NewDriverUsecase(driverRepo)
+	driverUsecase := usecase.NewDriverUsecase(driverRepo, tripRepo)
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)
 	userUsecase := usecase.NewUserUsecase(userRepo)
 	fmt.Println("✅ Usecases initialized")
@@ -178,7 +191,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 
 	// Setup CORS middleware
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:3000"},
+		AllowOrigins:     cfg.CORSOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},

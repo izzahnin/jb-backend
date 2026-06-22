@@ -20,7 +20,10 @@ CREATE TABLE IF NOT EXISTS customers (
     address TEXT,
     npwp VARCHAR(50),
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    created_by INT REFERENCES users(id),
+    updated_by INT REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS drivers (
@@ -29,7 +32,11 @@ CREATE TABLE IF NOT EXISTS drivers (
     license_number VARCHAR(50) UNIQUE,
     phone VARCHAR(20),
     status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'on_duty', 'off')),
-    is_active BOOLEAN DEFAULT true
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    created_by INT REFERENCES users(id),
+    updated_by INT REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS trucks (
@@ -38,7 +45,10 @@ CREATE TABLE IF NOT EXISTS trucks (
     truck_type VARCHAR(50),
     status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'on_duty', 'maintenance')),
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    created_by INT REFERENCES users(id),
+    updated_by INT REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -48,10 +58,16 @@ CREATE TABLE IF NOT EXISTS orders (
     admin_id INT REFERENCES users(id),
     origin TEXT NOT NULL,
     destination TEXT NOT NULL,
+    origin_lat  DOUBLE PRECISION,
+    origin_lng  DOUBLE PRECISION,
+    dest_lat    DOUBLE PRECISION,
+    dest_lng    DOUBLE PRECISION,
     is_active BOOLEAN DEFAULT true,
     total_containers INT DEFAULT 1,
     order_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'partial', 'completed', 'cancelled'))
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'partial', 'completed', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE IF NOT EXISTS trips (
@@ -67,7 +83,10 @@ CREATE TABLE IF NOT EXISTS trips (
     status VARCHAR(20) DEFAULT 'pickup' CHECK (status IN ('pickup', 'in_transit', 'delivered', 'cancelled')),
     start_time TIMESTAMP WITH TIME ZONE,
     end_time TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by   INT REFERENCES users(id),
+    started_by   INT REFERENCES users(id),
+    completed_by INT REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS locations (

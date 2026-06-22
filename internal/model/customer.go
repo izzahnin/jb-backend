@@ -12,7 +12,12 @@ type Customer struct {
 	Address     string    `db:"address" json:"address" example:"Jl. Sudirman No. 123, Jakarta"`
 	NPWP        string    `db:"npwp" json:"npwp" example:"01.234.567.8-901.000"`
 	IsActive    bool      `db:"is_active" json:"is_active" example:"true"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	UpdatedAt   *time.Time `db:"updated_at" json:"updated_at,omitempty"`
+	CreatedBy      *int    `db:"created_by" json:"created_by,omitempty"`
+	UpdatedBy      *int    `db:"updated_by" json:"updated_by,omitempty"`
+	CreatedByName  *string `db:"created_by_name" json:"created_by_name,omitempty"`
+	UpdatedByName  *string `db:"updated_by_name" json:"updated_by_name,omitempty"`
 }
 
 // CreateCustomerRequest is the request DTO for creating a new customer.

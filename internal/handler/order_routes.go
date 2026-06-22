@@ -39,7 +39,7 @@ func (h *Handler) RegisterOrderRoutes(r *gin.RouterGroup) {
 func (h *Handler) CreateOrder(c *gin.Context) {
 	var input model.CreateOrderRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid", "detail": err.Error()})
 		return
 	}
 
@@ -59,6 +59,10 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		CustomerID:      input.CustomerID,
 		Origin:          input.Origin,
 		Destination:     input.Destination,
+		OriginLat:       input.OriginLat,
+		OriginLng:       input.OriginLng,
+		DestLat:         input.DestLat,
+		DestLng:         input.DestLng,
 		TotalContainers: input.TotalContainers,
 		AdminID:         adminID,
 	}
@@ -180,6 +184,11 @@ func (h *Handler) UpdateOrderStatus(c *gin.Context) {
 	var input model.UpdateOrderRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
+		return
+	}
+
+	if input.Status == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Status completed hanya bisa berubah otomatis via penyelesaian trip"})
 		return
 	}
 

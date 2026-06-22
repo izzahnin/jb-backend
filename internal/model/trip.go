@@ -16,6 +16,14 @@ type Trip struct {
 	EndTime         *time.Time `db:"end_time" json:"end_time"` // Set when trip completes (not in request)
 	IsActive        bool       `db:"is_active" json:"is_active" example:"true"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	CreatedBy        *int    `db:"created_by" json:"created_by,omitempty"`
+	StartedBy        *int    `db:"started_by" json:"started_by,omitempty"`
+	CompletedBy      *int    `db:"completed_by" json:"completed_by,omitempty"`
+	StartedByName    *string `db:"started_by_name" json:"started_by_name,omitempty"`
+	CompletedByName  *string `db:"completed_by_name" json:"completed_by_name,omitempty"`
+	TruckPlateNumber string  `db:"truck_plate_number" json:"truck_plate_number,omitempty"`
+	TruckIsActive    *bool   `db:"truck_is_active" json:"truck_is_active,omitempty"`
+	DriverName       string  `db:"driver_name" json:"driver_name,omitempty"`
 }
 
 // CreateTripRequest is the request DTO for creating a new trip (only user-input fields)

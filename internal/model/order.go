@@ -9,19 +9,28 @@ type Order struct {
 	AdminID         int       `db:"admin_id" json:"admin_id"` // Auto-set from JWT token (not in request body)
 	Origin          string    `db:"origin" json:"origin" example:"Jakarta"` // Shipment origin
 	Destination     string    `db:"destination" json:"destination" example:"Surabaya"` // Shipment destination
+	OriginLat       *float64  `db:"origin_lat" json:"origin_lat,omitempty"` // Optional GPS coordinate for origin
+	OriginLng       *float64  `db:"origin_lng" json:"origin_lng,omitempty"`
+	DestLat         *float64  `db:"dest_lat" json:"dest_lat,omitempty"` // Optional GPS coordinate for destination
+	DestLng         *float64  `db:"dest_lng" json:"dest_lng,omitempty"`
 	TotalContainers int       `db:"total_containers" json:"total_containers" example:"5"` // Number of containers
 	OrderDate       time.Time `db:"order_date" json:"order_date"` // Auto-set to current time (not in request body)
 	Status          string    `db:"status" json:"status" example:"pending"` // Auto-set to 'pending' (not in request body)
 	IsActive        bool      `db:"is_active" json:"is_active" example:"true"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"` // Immutable: Auto-set by database
+	UpdatedAt       *time.Time `db:"updated_at" json:"updated_at,omitempty"`
 }
 
 // CreateOrderRequest is the request DTO for creating a new order (only user-input fields, no auto-generated fields)
 type CreateOrderRequest struct {
-	CustomerID      int    `json:"customer_id" example:"1" binding:"required"`       // Reference to customer
-	Origin          string `json:"origin" example:"Jakarta" binding:"required"`      // Shipment origin
-	Destination     string `json:"destination" example:"Surabaya" binding:"required"` // Shipment destination
-	TotalContainers int    `json:"total_containers" example:"5" binding:"required"`   // Number of containers
+	CustomerID      int      `json:"customer_id" example:"1" binding:"required"`       // Reference to customer
+	Origin          string   `json:"origin" example:"Jakarta" binding:"required"`      // Shipment origin
+	Destination     string   `json:"destination" example:"Surabaya" binding:"required"` // Shipment destination
+	OriginLat       *float64 `json:"origin_lat"`  // Optional GPS coordinate
+	OriginLng       *float64 `json:"origin_lng"`
+	DestLat         *float64 `json:"dest_lat"`
+	DestLng         *float64 `json:"dest_lng"`
+	TotalContainers int      `json:"total_containers" example:"5" binding:"required"`   // Number of containers
 }
 
 // UpdateOrderRequest is the request DTO for updating an order status

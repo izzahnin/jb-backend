@@ -15,7 +15,7 @@ func NewCustomerUsecase(repo *repository.CustomerRepository) *CustomerUsecase {
 	return &CustomerUsecase{repo: repo}
 }
 
-func (u *CustomerUsecase) Create(ctx context.Context, req *model.CreateCustomerRequest) (*model.Customer, error) {
+func (u *CustomerUsecase) Create(ctx context.Context, req *model.CreateCustomerRequest, createdBy *int) (*model.Customer, error) {
 	if req.CompanyName == "" {
 		return nil, ErrCustomerCompanyRequired
 	}
@@ -34,6 +34,7 @@ func (u *CustomerUsecase) Create(ctx context.Context, req *model.CreateCustomerR
 		Address:     req.Address,
 		NPWP:        req.NPWP,
 		IsActive:    true,
+		CreatedBy:   createdBy,
 	}
 
 	if err := u.repo.Create(ctx, customer); err != nil {
@@ -54,7 +55,7 @@ func (u *CustomerUsecase) GetByID(ctx context.Context, id int) (*model.Customer,
 	return u.repo.GetByID(ctx, id)
 }
 
-func (u *CustomerUsecase) Update(ctx context.Context, id int, req *model.UpdateCustomerRequest) (*model.Customer, error) {
+func (u *CustomerUsecase) Update(ctx context.Context, id int, req *model.UpdateCustomerRequest, updatedBy *int) (*model.Customer, error) {
 	if id <= 0 {
 		return nil, ErrCustomerInvalidID
 	}
@@ -92,6 +93,8 @@ func (u *CustomerUsecase) Update(ctx context.Context, id int, req *model.UpdateC
 	if existing.Phone == "" {
 		return nil, ErrCustomerPhoneRequired
 	}
+
+	existing.UpdatedBy = updatedBy
 
 	if err := u.repo.Update(ctx, id, existing); err != nil {
 		return nil, err

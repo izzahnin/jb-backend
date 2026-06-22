@@ -115,3 +115,16 @@ func (r *UserRepository) Update(ctx context.Context, u *model.User) error {
 	_, err := r.db.ExecContext(ctx, query, u.PasswordHash, u.FullName, u.IsActive, u.ID)
 	return err
 }
+
+// Deactivate melakukan soft delete user dengan mengeset is_active = false.
+func (r *UserRepository) Deactivate(ctx context.Context, id int) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE users SET is_active = false WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}

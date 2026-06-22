@@ -14,6 +14,7 @@ var (
 	ErrTruckPlateRequired = errors.New("nomor plat truck wajib diisi")
 	ErrTruckTypeRequired  = errors.New("tipe truck wajib diisi")
 	ErrTruckHasActiveTrips = errors.New("truck masih memiliki trip aktif, tidak bisa dinonaktifkan")
+	ErrTruckOnActiveTrip   = errors.New("truck sedang dalam trip aktif, status tidak bisa diubah")
 
 	// Driver-related errors
 	ErrDriverInvalidID = errors.New("driver id tidak valid")
@@ -22,6 +23,7 @@ var (
 	ErrDriverNameRequired    = errors.New("nama driver wajib diisi")
 	ErrDriverLicenseRequired = errors.New("nomor SIM wajib diisi")
 	ErrDriverPhoneRequired   = errors.New("nomor telepon driver wajib diisi")
+	ErrDriverOnActiveTrip    = errors.New("driver sedang dalam trip aktif, status tidak bisa diubah")
 
 	// Customer-related errors
 	ErrCustomerInvalidID = errors.New("customer id tidak valid")

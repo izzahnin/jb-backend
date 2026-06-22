@@ -44,12 +44,16 @@ func (h *Handler) CreateTruck(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	adminID := userID.(int)
+
 	// Create Truck struct for database operations (will set auto-generated fields)
 	truck := &model.Truck{
 		PlateNumber: input.PlateNumber,
 		TruckType:   input.TruckType,
 		Status:      input.Status,
 		IsActive:    input.IsActive,
+		CreatedBy:   &adminID,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -159,15 +163,22 @@ func (h *Handler) UpdateTruck(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	adminID := userID.(int)
+	input.UpdatedBy = &adminID
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TruckUsecase.Update(ctx, id, &input); err != nil {
-		if err == usecase.ErrTruckInvalidID {
+		switch err {
+		case usecase.ErrTruckInvalidID, usecase.ErrTruckPlateRequired, usecase.ErrTruckTypeRequired, usecase.ErrValidationFailed:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+		case usecase.ErrTruckOnActiveTrip:
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
