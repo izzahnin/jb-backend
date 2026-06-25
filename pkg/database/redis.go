@@ -2,6 +2,8 @@ package database
 
 import (
 	"context"
+	"crypto/tls"
+	"os"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -11,11 +13,19 @@ type RedisClient struct {
 }
 
 func NewRedis(addr, password string, db int) *RedisClient {
-	r := redis.NewClient(&redis.Options{
+	opt := &redis.Options{
 		Addr:     addr,
 		Password: password,
 		DB:       db,
-	})
+	}
+
+	if os.Getenv("REDIS_TLS") == "true" {
+		opt.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
+	r := redis.NewClient(opt)
 	return &RedisClient{client: r}
 }
 
