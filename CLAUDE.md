@@ -131,7 +131,7 @@ Struct field: `db:""` (sqlx), `json:""`, Swagger `example:""` tags.
 
 **Audit trail:** field `created_by_name`, `updated_by_name` di semua entity utama.
 
-**GPS tracking:** posisi terbaru trip di-cache di Redis. History GPS disimpan di PostgreSQL (`location` table).
+**GPS tracking:** device push koordinat secara berkala (interval-based, bukan real-time streaming). Posisi terbaru di-cache Redis untuk akses cepat; history lengkap disimpan di PostgreSQL (`location` table).
 
 **Pagination:** semua list endpoint support `?limit=&offset=` via `pkg/helper/pagination.go`.
 
