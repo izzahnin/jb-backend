@@ -65,7 +65,7 @@ func (r *TruckRepository) Count(ctx context.Context) (int, error) {
 
 func (r *TruckRepository) CountActive(ctx context.Context) (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM trucks WHERE is_active = true`
+	query := `SELECT COUNT(*) FROM trucks WHERE is_active = true AND status = 'on_duty'`
 	if err := r.db.GetContext(ctx, &count, query); err != nil {
 		return 0, err
 	}

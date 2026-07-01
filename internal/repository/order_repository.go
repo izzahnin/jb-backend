@@ -80,6 +80,16 @@ func (r *OrderRepository) Count(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// CountActiveOrders menghitung order yang masih aktif (status pending atau partial).
+func (r *OrderRepository) CountActiveOrders(ctx context.Context) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM orders WHERE is_active = true AND status IN ('pending', 'partial')`
+	if err := r.db.GetContext(ctx, &count, query); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // GetByID mengambil detail single order berdasarkan ID.
 // Melakukan SELECT dengan WHERE id = $1.
 // Returns: pointer ke order object, atau error jika order tidak ditemukan atau query gagal.

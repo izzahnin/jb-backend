@@ -46,8 +46,8 @@ func (h *Handler) GetDashboardStats(c *gin.Context) {
 
 	stats := &DashboardStats{}
 
-	// Total Orders
-	totalOrders, err := h.OrderRepo.Count(ctx)
+	// Active Orders (pending + partial only)
+	totalOrders, err := h.OrderRepo.CountActiveOrders(ctx)
 	if err == nil {
 		stats.TotalOrders = totalOrders
 	}
