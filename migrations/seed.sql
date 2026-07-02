@@ -39,7 +39,8 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES
   ('superadmin',  crypt('demo1234', gen_salt('bf', 10)), 'Rizky Aditya',   'super_admin',  true),
   ('admin.sales', crypt('demo1234', gen_salt('bf', 10)), 'Andi Kurniawan', 'admin_sales',  true),
-  ('admin.ops',   crypt('demo1234', gen_salt('bf', 10)), 'Bayu Prasetyo',  'admin_ops',    true);
+  ('admin.ops',   crypt('demo1234', gen_salt('bf', 10)), 'Bayu Prasetyo',  'admin_ops',    true),
+  ('demo',        crypt('demo1234', gen_salt('bf', 10)), 'Demo Viewer',    'demo',         true);
 
 -- -----------------------------------------------------------------------------
 -- CUSTOMERS (5 perusahaan logistik/industri Sulawesi)
@@ -193,6 +194,7 @@ BEGIN
   RAISE NOTICE 'Trips    : % baris', (SELECT COUNT(*) FROM trips);
   RAISE NOTICE 'Locations: % baris', (SELECT COUNT(*) FROM locations);
   RAISE NOTICE '====================';
-  RAISE NOTICE 'Login: superadmin / admin.sales / admin.ops';
-  RAISE NOTICE 'Password: demo1234';
+  RAISE NOTICE 'Login: superadmin / admin.sales / admin.ops / demo';
+  RAISE NOTICE 'Password: demo1234 (semua)';
+  RAISE NOTICE 'demo = read-only access ke semua halaman';
 END $$;

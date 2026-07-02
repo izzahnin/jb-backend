@@ -87,7 +87,7 @@ func AdminMiddleware() gin.HandlerFunc {
 
 		// Check whether role belongs to internal admin/staff roles.
 		roleStr, ok := role.(string)
-		if !ok || (roleStr != "super_admin" && roleStr != "admin_sales" && roleStr != "admin_ops") {
+		if !ok || (roleStr != "super_admin" && roleStr != "admin_sales" && roleStr != "admin_ops" && roleStr != "demo") {
 			// Jika bukan admin, return 403 Forbidden (authenticated tapi tidak authorized)
 			c.JSON(http.StatusForbidden, gin.H{"error": "admin role required"})
 			c.Abort()
@@ -99,7 +99,22 @@ func AdminMiddleware() gin.HandlerFunc {
 	}
 }
 
+// DemoReadOnlyMiddleware blocks all non-GET requests for the demo role.
+// Must be applied after AdminMiddleware.
+func DemoReadOnlyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleVal, _ := c.Get("role")
+		if roleStr, _ := roleVal.(string); roleStr == "demo" && c.Request.Method != "GET" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Mode Demo: tidak dapat membuat perubahan"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 // RequireRoles enforces a role allowlist for route groups.
+// The demo role is allowed through for GET requests (read-only access to all data).
 func RequireRoles(allowed ...string) gin.HandlerFunc {
 	allowedSet := make(map[string]struct{}, len(allowed))
 	for _, role := range allowed {
@@ -118,6 +133,12 @@ func RequireRoles(allowed ...string) gin.HandlerFunc {
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid role format"})
 			c.Abort()
+			return
+		}
+
+		// Demo role passes all GET requests (read-only access to all pages)
+		if role == "demo" && c.Request.Method == "GET" {
+			c.Next()
 			return
 		}
 

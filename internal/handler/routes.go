@@ -48,7 +48,7 @@ func (h *Handler) RegisterAllRoutes(r *gin.Engine) {
 	// Base middleware: JWT authentication + Admin role check
 	// All subsequent routes inherit these middlewares
 	adminRoutes := r.Group("")
-	adminRoutes.Use(middleware.AuthMiddleware(h.JWTSecret), middleware.AdminMiddleware())
+	adminRoutes.Use(middleware.AuthMiddleware(h.JWTSecret), middleware.AdminMiddleware(), middleware.DemoReadOnlyMiddleware())
 
 	// ===================================================================
 	// LAYER 4: ROLE-BASED ROUTE GROUPS (Extends admin protection)
