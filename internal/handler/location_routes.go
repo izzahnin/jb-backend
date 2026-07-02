@@ -63,6 +63,8 @@ func (h *Handler) PostLocation(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		case usecase.ErrLocationTripNotInTransit:
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		case usecase.ErrLocationThrottled:
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}

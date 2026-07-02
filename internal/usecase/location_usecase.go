@@ -2,19 +2,24 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
+	"github.com/izzahnin/jalur-berlian-backend/pkg/database"
 )
+
+const locationThrottleTTL = 30 * time.Second
 
 type LocationUsecase struct {
 	repo     repository.LocationRepository
 	tripRepo *repository.TripRepository
+	redis    *database.RedisClient
 }
 
-func NewLocationUsecase(repo repository.LocationRepository, tripRepo *repository.TripRepository) *LocationUsecase {
-	return &LocationUsecase{repo: repo, tripRepo: tripRepo}
+func NewLocationUsecase(repo repository.LocationRepository, tripRepo *repository.TripRepository, redis *database.RedisClient) *LocationUsecase {
+	return &LocationUsecase{repo: repo, tripRepo: tripRepo, redis: redis}
 }
 
 func (u *LocationUsecase) SaveLocation(ctx context.Context, tripID int, lat, lon float64, ts time.Time) error {
@@ -37,6 +42,13 @@ func (u *LocationUsecase) SaveLocation(ctx context.Context, tripID int, lat, lon
 
 	if trip.Status == "delivered" {
 		return ErrLocationTripDelivered
+	}
+
+	// Throttle: cegah spam lokasi lebih dari 1x per 30 detik per trip
+	throttleKey := fmt.Sprintf("trip:%d:location_throttle", tripID)
+	set, err := u.redis.Client().SetNX(ctx, throttleKey, "1", locationThrottleTTL).Result()
+	if err == nil && !set {
+		return ErrLocationThrottled
 	}
 
 	return u.repo.SaveLocation(ctx, tripID, lat, lon, ts)

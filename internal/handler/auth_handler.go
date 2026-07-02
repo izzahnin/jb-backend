@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/izzahnin/jalur-berlian-backend/internal/model"
+	"github.com/izzahnin/jalur-berlian-backend/internal/usecase"
 )
 
 // RegisterAuthRoutes mendaftarkan authentication endpoints (public - no auth required).
@@ -35,6 +37,22 @@ func (h *Handler) RegisterSetupRoutes(r *gin.Engine) {
 // @Failure 401 {object} map[string]string "Unauthorized - invalid username or password, or user inactive"
 // @Router /auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
+	// Rate limiting: max 10 percobaan per IP per 60 detik
+	if h.Redis != nil {
+		ip := c.ClientIP()
+		ratKey := fmt.Sprintf("rate:login:%s", ip)
+		ctx := c.Request.Context()
+
+		count, _ := h.Redis.Client().Incr(ctx, ratKey).Result()
+		if count == 1 {
+			h.Redis.Client().Expire(ctx, ratKey, 60*time.Second)
+		}
+		if count > 10 {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": usecase.ErrRateLimitExceeded.Error()})
+			return
+		}
+	}
+
 	var loginReq model.LoginRequest
 	if err := c.ShouldBindJSON(&loginReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})

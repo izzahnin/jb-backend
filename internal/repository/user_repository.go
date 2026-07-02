@@ -116,6 +116,19 @@ func (r *UserRepository) Update(ctx context.Context, u *model.User) error {
 	return err
 }
 
+// UpdatePasswordHash mengganti password hash user berdasarkan ID (super_admin only).
+func (r *UserRepository) UpdatePasswordHash(ctx context.Context, id int, hash string) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, hash, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}
+
 // Deactivate melakukan soft delete user dengan mengeset is_active = false.
 func (r *UserRepository) Deactivate(ctx context.Context, id int) error {
 	res, err := r.db.ExecContext(ctx, `UPDATE users SET is_active = false WHERE id = $1`, id)

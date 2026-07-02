@@ -177,7 +177,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	truckUsecase := usecase.NewTruckUsecase(truckRepo, tripRepo)
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, customerRepo)
 	tripUsecase := usecase.NewTripUsecase(tripRepo, orderRepo, truckRepo, driverRepo, auditRepo)
-	locationUsecase := usecase.NewLocationUsecase(locRepo, tripRepo)
+	locationUsecase := usecase.NewLocationUsecase(locRepo, tripRepo, redis)
 	customerUsecase := usecase.NewCustomerUsecase(customerRepo)
 	driverUsecase := usecase.NewDriverUsecase(driverRepo, tripRepo)
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)
@@ -203,7 +203,7 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	h := handler.NewHandler(
 		truckRepo, orderRepo, tripRepo, driverRepo, customerRepo, auditRepo, locRepo, userRepo,
 		truckUsecase, orderUsecase, tripUsecase, locationUsecase, customerUsecase, driverUsecase, authUsecase, userUsecase,
-		cfg.JWTSecret,
+		cfg.JWTSecret, redis,
 	)
 
 	// Register all routes

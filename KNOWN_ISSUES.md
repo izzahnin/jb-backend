@@ -33,19 +33,15 @@ Dokumen ini mencatat keterbatasan teknis, masalah yang diketahui, dan daftar imp
 
 ---
 
-### 4. CORS Origins Di-hardcode di `main.go`
-**Masalah:** Daftar origins yang diizinkan CORS (`localhost:3000`, `3001`, `5173`, dst) di-hardcode langsung di `cmd/api/main.go`, bukan dibaca dari environment variable.
-
-**Dampak:** Saat deployment ke staging/production, harus ubah kode dan rebuild.
-
-**Solusi di masa depan:** Tambah `CORS_ALLOWED_ORIGINS` di env var, parse sebagai comma-separated string di `LoadConfig()`.
+### ~~4. CORS Origins Di-hardcode di `main.go`~~ ✅ RESOLVED
+**Diselesaikan:** `LoadConfig()` di `cmd/api/main.go` sudah membaca env var `CORS_ALLOWED_ORIGINS` (comma-separated). Default fallback ke `localhost:3000,localhost:3001` jika env var tidak diset.
 
 ---
 
-### 5. Tidak Ada Rate Limiting
-**Masalah:** Tidak ada pembatasan jumlah request per IP/user. Endpoint login dan POST location GPS rentan terhadap brute force atau spam request.
-
-**Solusi di masa depan:** Implementasi rate limiting menggunakan `golang.org/x/time/rate` atau middleware Gin pihak ketiga (`gin-contrib/ratelimit`).
+### ~~5. Tidak Ada Rate Limiting~~ ✅ RESOLVED
+**Diselesaikan:** Redis-based rate limiting ditambah ke dua endpoint kritis:
+- **Login** (`POST /auth/login`): max 10 attempts per IP per 60 detik → 429 jika melebihi
+- **GPS Location** (`POST /trips/:id/location`): throttle 30 detik per trip via Redis `SetNX` → 429 jika terlalu cepat
 
 ---
 
@@ -58,10 +54,8 @@ Dokumen ini mencatat keterbatasan teknis, masalah yang diketahui, dan daftar imp
 
 ---
 
-### 7. GPS Location: Tidak Ada Interval Throttling
-**Masalah:** Endpoint `POST /trips/{id}/location` tidak membatasi frekuensi pengiriman lokasi. Client bisa spam request setiap detik atau lebih cepat, yang bisa menyebabkan database tumbuh sangat cepat.
-
-**Solusi di masa depan:** Tambah validasi di `location_usecase.go` — tolak request jika lokasi terbaru sudah dikirim kurang dari X detik yang lalu (cek dari Redis cache).
+### ~~7. GPS Location: Tidak Ada Interval Throttling~~ ✅ RESOLVED
+**Diselesaikan:** Termasuk dalam fix rate limiting (#5) — `location_usecase.go` kini cek Redis key `trip:{id}:location_throttle` sebelum simpan. Jika key ada (TTL 30 detik), return `ErrLocationThrottled` → handler map ke 429.
 
 ---
 
@@ -74,19 +68,24 @@ Dokumen ini mencatat keterbatasan teknis, masalah yang diketahui, dan daftar imp
 
 ---
 
-### 9. Password Setup Admin Hanya Sekali (No Reset Flow)
-**Masalah:** Tidak ada endpoint untuk reset password admin. Jika admin lupa password, satu-satunya cara adalah generate hash baru via `cmd/genhash/` dan update langsung ke database.
-
-**Solusi di masa depan:** Tambah endpoint `PATCH /admin/users/{id}/password` yang hanya bisa diakses `super_admin`, untuk reset password admin lain.
+### ~~9. Password Setup Admin Hanya Sekali (No Reset Flow)~~ ✅ RESOLVED
+**Diselesaikan:** Endpoint `PATCH /admin/users/:id/password` ditambah (super_admin only). Backend: `UserRepository.UpdatePasswordHash` + `UserUsecase.ResetPassword` + handler `ResetUserPassword`. Frontend: tombol "Reset Password" di halaman Users membuka modal input password baru.
 
 ---
 
-### 10. `cmd/genhash/` Tidak Terdokumentasi
-**Masalah:** Utility `cmd/genhash/main.go` untuk generate bcrypt hash password ada di codebase tapi tidak disebutkan di README atau SETUP.md.
+### ~~10. `cmd/genhash/` Tidak Terdokumentasi~~ ✅ RESOLVED
+**Diselesaikan:** Utility didokumentasikan di bawah.
 
-**Penanganan saat ini:** Hanya diketahui dari membaca kode langsung.
+**Cara pakai `cmd/genhash/`:**
+```bash
+# Generate bcrypt hash untuk password baru (misal: untuk setup manual di DB)
+cd jb-backend
+go run cmd/genhash/main.go
 
-**Solusi di masa depan:** Tambahkan section di SETUP.md tentang cara menggunakan genhash untuk setup password awal.
+# Atau dengan Docker:
+docker exec -it jbm_api go run cmd/genhash/main.go
+```
+Utility ini berguna jika perlu set password super_admin secara manual langsung ke PostgreSQL (tanpa melalui endpoint API).
 
 ---
 
@@ -110,6 +109,8 @@ Dokumen ini mencatat keterbatasan teknis, masalah yang diketahui, dan daftar imp
 | 2026-06 | GPS location cache di Redis + history di PostgreSQL |
 | 2026-06 | Graceful shutdown (SIGINT/SIGTERM, timeout 10 detik) |
 | 2026-06 | Koordinat GPS opsional di orders (origin_lat/lng, dest_lat/lng) |
+| 2026-07 | Endpoint reset password admin — `PATCH /admin/users/:id/password` (super_admin only) |
+| 2026-07 | Rate limiting login (10 req/IP/60s) + GPS throttle (1 req/trip/30s) via Redis |
 
 ---
 
@@ -119,12 +120,12 @@ Dokumen ini mencatat keterbatasan teknis, masalah yang diketahui, dan daftar imp
 - [x] ~~Tambah kolom `created_at` ke tabel `drivers`~~ — selesai (`init.sql`)
 - [x] ~~Tambah kolom `updated_by` ke customers, trucks, drivers~~ — selesai (`init.sql`)
 - [ ] Implementasi refresh token
-- [ ] Rate limiting untuk endpoint login dan GPS location
+- [x] ~~Rate limiting untuk endpoint login dan GPS location~~ — selesai (Redis-based, 429 response)
 - [ ] Integrasi `golang-migrate` untuk versioned migration management
 - [ ] Unit test untuk usecase layer
 - [ ] Integration test untuk repository layer
-- [ ] Pindahkan CORS origins ke environment variable
-- [ ] Endpoint reset password admin
-- [ ] Dokumentasi `cmd/genhash/` di SETUP.md
+- [x] ~~Pindahkan CORS origins ke environment variable~~ — selesai (sudah baca dari `CORS_ALLOWED_ORIGINS` env var)
+- [x] ~~Endpoint reset password admin~~ — selesai (`PATCH /admin/users/:id/password`)
+- [x] ~~Dokumentasi `cmd/genhash/`~~ — selesai (didokumentasikan di KNOWN_ISSUES #10)
 - [ ] Pindahkan logika generate order/trip number dari DB trigger ke Go
-- [ ] Throttling GPS location (tolak jika interval terlalu pendek)
+- [x] ~~Throttling GPS location~~ — selesai (Redis SetNX 30 detik per trip)

@@ -5,6 +5,7 @@ package handler
 import (
 	"github.com/izzahnin/jalur-berlian-backend/internal/repository"
 	"github.com/izzahnin/jalur-berlian-backend/internal/usecase"
+	"github.com/izzahnin/jalur-berlian-backend/pkg/database"
 )
 
 // Handler adalah root handler yang menyimpan semua dependencies.
@@ -32,6 +33,7 @@ type Handler struct {
 
 	// Config
 	JWTSecret string
+	Redis     *database.RedisClient
 }
 
 // NewHandler membuat instance baru root handler.
@@ -53,6 +55,7 @@ func NewHandler(
 	authUsecase *usecase.AuthUsecase,
 	userUsecase *usecase.UserUsecase,
 	jwtSecret string,
+	redis *database.RedisClient,
 ) *Handler {
 	return &Handler{
 		TruckRepo:       truckRepo,
@@ -72,5 +75,6 @@ func NewHandler(
 		AuthUsecase:     authUsecase,
 		UserUsecase:     userUsecase,
 		JWTSecret:       jwtSecret,
+		Redis:           redis,
 	}
 }

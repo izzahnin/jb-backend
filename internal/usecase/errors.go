@@ -55,10 +55,14 @@ var (
 	ErrTripSealRequired            = errors.New("nomor segel wajib diisi")
 
 	// Location-related errors
-	ErrLocationInvalidTripID = errors.New("trip id untuk location tidak valid")
-	ErrLocationInvalidCoords  = errors.New("koordinat latitude/longitude tidak valid")
+	ErrLocationInvalidTripID    = errors.New("trip id untuk location tidak valid")
+	ErrLocationInvalidCoords    = errors.New("koordinat latitude/longitude tidak valid")
 	ErrLocationTripNotInTransit = errors.New("lokasi hanya bisa dikirim saat trip sedang in_transit")
-	ErrLocationTripDelivered = errors.New("lokasi tidak bisa dikirim untuk trip yang sudah delivered")
+	ErrLocationTripDelivered    = errors.New("lokasi tidak bisa dikirim untuk trip yang sudah delivered")
+	ErrLocationThrottled        = errors.New("interval terlalu singkat, tunggu 30 detik sebelum kirim lokasi lagi")
+
+	// Rate limiting errors
+	ErrRateLimitExceeded = errors.New("terlalu banyak percobaan, coba lagi nanti")
 
 	// Validation errors
 	ErrValidationFailed = errors.New("validasi data gagal")

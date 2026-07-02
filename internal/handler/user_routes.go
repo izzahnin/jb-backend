@@ -17,6 +17,7 @@ func (h *Handler) RegisterUserRoutes(r *gin.RouterGroup) {
 	r.GET("/admin/users", h.ListUsers)
 	r.POST("/admin/users", h.CreateUser)
 	r.DELETE("/admin/users/:id", h.DeleteUser)
+	r.PATCH("/admin/users/:id/password", h.ResetUserPassword)
 }
 
 // CreateUser membuat user baru (super_admin-only).
@@ -153,6 +154,53 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		"message": "Profile berhasil diperbarui",
 		"data":    user,
 	})
+}
+
+// ResetUserPassword mereset password user lain (super_admin only).
+// @Summary Reset password user (super_admin only)
+// @Tags User Management
+// @Accept json
+// @Produce json
+// @Param id path int true "User ID"
+// @Param body body object true "New password (min 6 chars)"
+// @Success 200 {object} map[string]string "Password berhasil direset"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Failure 404 {object} map[string]string "User not found"
+// @Router /admin/users/{id}/password [patch]
+// @Security Bearer
+func (h *Handler) ResetUserPassword(c *gin.Context) {
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+
+	var input struct {
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON tidak valid"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.UserUsecase.ResetPassword(ctx, targetID, input.NewPassword); err != nil {
+		switch err.Error() {
+		case "password must be at least 6 characters":
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case "user not found":
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset"})
 }
 
 // DeleteUser menonaktifkan user (soft delete) berdasarkan ID (super_admin only).

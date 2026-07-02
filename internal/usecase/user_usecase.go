@@ -130,6 +130,19 @@ func (u *UserUsecase) DeactivateUser(ctx context.Context, id int) error {
 	return nil
 }
 
+// ResetPassword mereset password user lain oleh super_admin.
+// Tidak memerlukan password lama — hanya super_admin yang bisa akses endpoint ini.
+func (u *UserUsecase) ResetPassword(ctx context.Context, targetID int, newPassword string) error {
+	if len(newPassword) < 6 {
+		return errors.New("password must be at least 6 characters")
+	}
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+	return u.userRepo.UpdatePasswordHash(ctx, targetID, hash)
+}
+
 // UpdateProfile memungkinkan admin update profile mereka sendiri (fullname dan/atau password).
 // Flow:
 // 1. Validasi user exists
