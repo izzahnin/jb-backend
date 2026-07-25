@@ -11,11 +11,11 @@ import (
 
 // TripUsecase orchestrates operational trip lifecycle and its side effects.
 type TripUsecase struct {
-	tripRepo    *repository.TripRepository
-	orderRepo   *repository.OrderRepository
-	truckRepo   *repository.TruckRepository
-	driverRepo  *repository.DriverRepository
-	auditRepo   *repository.AuditLogRepository
+	tripRepo   *repository.TripRepository
+	orderRepo  *repository.OrderRepository
+	truckRepo  *repository.TruckRepository
+	driverRepo *repository.DriverRepository
+	auditRepo  *repository.AuditLogRepository
 }
 
 func NewTripUsecase(
@@ -79,33 +79,13 @@ func (u *TripUsecase) CreateTrip(ctx context.Context, trip *model.Trip, actorUse
 
 	trip.Status = "pickup"
 	trip.CreatedBy = &actorUserID
-	if err := u.tripRepo.Create(ctx, trip); err != nil {
-		return err
-	}
 
-	if err := u.truckRepo.SetStatus(ctx, trip.TruckID, "on_duty"); err != nil {
-		return err
-	}
-	if err := u.driverRepo.SetStatus(ctx, trip.DriverID, "on_duty"); err != nil {
-		return err
-	}
-
-	if order.Status == "pending" {
-		if err := u.orderRepo.UpdateStatus(ctx, order.ID, "partial"); err != nil {
-			return err
-		}
-	}
-
+	var auditUserID *int
 	if u.auditRepo != nil {
-		newValue, _ := json.Marshal(trip)
-		_ = u.auditRepo.Create(ctx, &model.AuditLog{
-			UserID:    actorUserID,
-			Action:    "CREATE",
-			TableName: "trips",
-			RecordID:  trip.ID,
-			OldValues: "",
-			NewValues: string(newValue),
-		})
+		auditUserID = &actorUserID
+	}
+	if err := u.tripRepo.CreateWithAssignments(ctx, trip, order.Status == "pending", auditUserID); err != nil {
+		return err
 	}
 
 	return nil
@@ -170,46 +150,12 @@ func (u *TripUsecase) CompleteTrip(ctx context.Context, tripID int, actorUserID 
 
 	oldValue, _ := json.Marshal(trip)
 	now := time.Now().UTC()
-	if err := u.tripRepo.MarkDelivered(ctx, tripID, now, &actorUserID); err != nil {
-		return err
-	}
-	if err := u.truckRepo.SetStatus(ctx, trip.TruckID, "available"); err != nil {
-		return err
-	}
-	if err := u.driverRepo.SetStatus(ctx, trip.DriverID, "available"); err != nil {
-		return err
-	}
-
-	totalTrips, err := u.tripRepo.CountByOrderID(ctx, trip.OrderID)
-	if err != nil {
-		return err
-	}
-	deliveredTrips, err := u.tripRepo.CountByOrderIDAndStatus(ctx, trip.OrderID, "delivered")
-	if err != nil {
-		return err
-	}
-	if totalTrips > 0 && totalTrips == deliveredTrips {
-		if err := u.orderRepo.UpdateStatus(ctx, trip.OrderID, "completed"); err != nil {
-			return err
-		}
-	} else {
-		if err := u.orderRepo.UpdateStatus(ctx, trip.OrderID, "partial"); err != nil {
-			return err
-		}
-	}
-
-	trip.Status = "delivered"
-	trip.EndTime = &now
+	var auditUserID *int
 	if u.auditRepo != nil {
-		newValue, _ := json.Marshal(trip)
-		_ = u.auditRepo.Create(ctx, &model.AuditLog{
-			UserID:    actorUserID,
-			Action:    "UPDATE",
-			TableName: "trips",
-			RecordID:  trip.ID,
-			OldValues: string(oldValue),
-			NewValues: string(newValue),
-		})
+		auditUserID = &actorUserID
+	}
+	if err := u.tripRepo.CompleteWithRelease(ctx, trip, now, &actorUserID, string(oldValue), auditUserID); err != nil {
+		return err
 	}
 
 	return nil
