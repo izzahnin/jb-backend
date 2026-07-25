@@ -46,7 +46,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	user, err := h.UserUsecase.CreateUser(ctx, &input)
@@ -82,7 +82,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 // @Router /admin/users [get]
 // @Security Bearer
 func (h *Handler) ListUsers(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	users, err := h.UserUsecase.ListUsers(ctx)
@@ -129,7 +129,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	user, err := h.UserUsecase.UpdateProfile(ctx, userID.(int), &input)
@@ -185,7 +185,7 @@ func (h *Handler) ResetUserPassword(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.UserUsecase.ResetPassword(ctx, targetID, input.NewPassword); err != nil {
@@ -218,7 +218,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.UserUsecase.DeactivateUser(ctx, targetID); err != nil {

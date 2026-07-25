@@ -43,7 +43,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	adminID := userID.(int)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	customer, err := h.CustomerUsecase.Create(ctx, &input, &adminID)
@@ -71,7 +71,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 // @Router /admin/customers [get]
 // @Security Bearer
 func (h *Handler) ListCustomers(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	customers, err := h.CustomerUsecase.List(ctx)
@@ -103,7 +103,7 @@ func (h *Handler) GetCustomer(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	customer, err := h.CustomerUsecase.GetByID(ctx, id)
@@ -154,7 +154,7 @@ func (h *Handler) UpdateCustomer(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	adminID := userID.(int)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	customer, err := h.CustomerUsecase.Update(ctx, id, &input, &adminID)
@@ -193,7 +193,7 @@ func (h *Handler) DeleteCustomer(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.CustomerUsecase.Delete(ctx, id); err != nil {

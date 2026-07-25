@@ -67,7 +67,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		AdminID:         adminID,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.OrderUsecase.CreateOrder(ctx, order); err != nil {
@@ -101,7 +101,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 // @Router /admin/orders [get]
 // @Security Bearer
 func (h *Handler) ListOrders(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	pagination := helper.ParsePaginationParams(c)
@@ -145,7 +145,7 @@ func (h *Handler) GetOrder(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	order, err := h.OrderUsecase.GetByID(ctx, id)
@@ -192,7 +192,7 @@ func (h *Handler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.OrderUsecase.UpdateStatus(ctx, id, input.Status); err != nil {
@@ -235,7 +235,7 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.OrderUsecase.Cancel(ctx, id); err != nil {

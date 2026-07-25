@@ -41,7 +41,7 @@ type DashboardStats struct {
 // @Router /admin/dashboard/stats [get]
 // @Security Bearer
 func (h *Handler) GetDashboardStats(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	stats := &DashboardStats{}

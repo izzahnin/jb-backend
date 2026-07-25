@@ -59,7 +59,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	loginResp, err := h.AuthUsecase.Login(ctx, &loginReq)
@@ -89,7 +89,7 @@ func (h *Handler) AdminSetup(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	loginResp, err := h.AuthUsecase.AdminSetup(ctx, &setupReq)

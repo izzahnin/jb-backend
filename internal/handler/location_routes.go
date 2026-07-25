@@ -52,7 +52,7 @@ func (h *Handler) PostLocation(c *gin.Context) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.LocationUsecase.SaveLocation(ctx, tripID, input.Lat, input.Lon, ts); err != nil {
@@ -100,7 +100,7 @@ func (h *Handler) GetLocationHistory(c *gin.Context) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	locations, err := h.LocationUsecase.GetHistory(ctx, tripID, limit)
@@ -135,7 +135,7 @@ func (h *Handler) GetLatestLocation(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	location, err := h.LocationUsecase.GetLatest(ctx, tripID)

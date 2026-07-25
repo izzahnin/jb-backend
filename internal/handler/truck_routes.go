@@ -56,7 +56,7 @@ func (h *Handler) CreateTruck(c *gin.Context) {
 		CreatedBy:   &adminID,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TruckUsecase.RegisterTruck(ctx, truck); err != nil {
@@ -82,7 +82,7 @@ func (h *Handler) CreateTruck(c *gin.Context) {
 // @Router /admin/trucks [get]
 // @Security Bearer
 func (h *Handler) ListTrucks(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	pagination := helper.ParsePaginationParams(c)
@@ -123,7 +123,7 @@ func (h *Handler) GetTruck(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	truck, err := h.TruckUsecase.GetByID(ctx, id)
@@ -167,7 +167,7 @@ func (h *Handler) UpdateTruck(c *gin.Context) {
 	adminID := userID.(int)
 	input.UpdatedBy = &adminID
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TruckUsecase.Update(ctx, id, &input); err != nil {
@@ -219,7 +219,7 @@ func (h *Handler) DeleteTruck(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TruckUsecase.Deactivate(ctx, id); err != nil {

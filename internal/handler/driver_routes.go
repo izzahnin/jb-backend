@@ -43,7 +43,7 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	adminID := userID.(int)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	driver, err := h.DriverUsecase.Create(ctx, &input, &adminID)
@@ -71,7 +71,7 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 // @Router /admin/drivers [get]
 // @Security Bearer
 func (h *Handler) ListDrivers(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	drivers, err := h.DriverUsecase.List(ctx)
@@ -103,7 +103,7 @@ func (h *Handler) GetDriver(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	driver, err := h.DriverUsecase.GetByID(ctx, id)
@@ -154,7 +154,7 @@ func (h *Handler) UpdateDriver(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	adminID := userID.(int)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	driver, err := h.DriverUsecase.Update(ctx, id, &input, &adminID)
@@ -195,7 +195,7 @@ func (h *Handler) DeleteDriver(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.DriverUsecase.Delete(ctx, id); err != nil {

@@ -32,7 +32,7 @@ func (h *Handler) RegisterTripRoutes(r *gin.RouterGroup) {
 // @Router /admin/trips [get]
 // @Security Bearer
 func (h *Handler) ListTrips(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	trips, err := h.TripUsecase.GetAll(ctx)
@@ -89,7 +89,7 @@ func (h *Handler) CreateTrip(c *gin.Context) {
 		DriverID: input.DriverID,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TripUsecase.CreateTrip(ctx, trip, actorUserID); err != nil {
@@ -131,7 +131,7 @@ func (h *Handler) GetTrip(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	trip, err := h.TripUsecase.GetByID(ctx, tripID)
@@ -188,7 +188,7 @@ func (h *Handler) StartTrip(c *gin.Context) {
 	}
 	actorUserID := userIDVal.(int)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TripUsecase.StartTrip(ctx, tripID, input.ContainerNumber, input.SealNumber, actorUserID); err != nil {
@@ -238,7 +238,7 @@ func (h *Handler) CompleteTrip(c *gin.Context) {
 	}
 	actorUserID := userIDVal.(int)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := h.TripUsecase.CompleteTrip(ctx, tripID, actorUserID); err != nil {
