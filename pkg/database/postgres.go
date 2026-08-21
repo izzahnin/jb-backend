@@ -5,10 +5,10 @@ import (
 	_ "github.com/lib/pq" // Driver PostgreSQL
 )
 
-// NewPostgres membuka koneksi ke database menggunakan DSN (Data Source Name)
+// NewPostgres membuat pool koneksi database menggunakan DSN (Data Source Name).
+// Koneksi aktual diverifikasi terpisah saat startup agar bisa memakai context dan retry.
 func NewPostgres(dsn string) (*sqlx.DB, error) {
-	// sqlx.Connect langsung melakukan Open dan Ping sekaligus
-	db, err := sqlx.Connect("postgres", dsn)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}

@@ -98,6 +98,21 @@ Utility ini berguna jika perlu set password super_admin secara manual langsung k
 
 ---
 
+### ~~12. Render Crash Loop Setelah Supabase Resume~~ ✅ RESOLVED
+**Gejala:** Setelah Supabase sempat di-pause lalu di-resume, service Render `jb-backend` terus mengembalikan 502 Bad Gateway. Log Supabase terlihat menerima request health/readiness berulang ke `/auth/v1/health` dan `/rest-admin/v1/ready`, karena Render terus mencoba restart service yang gagal saat startup.
+
+**Akar masalah:** Startup dependency check terlalu agresif. `pkg/database/postgres.go` memakai `sqlx.Connect`, yang langsung melakukan `Open + Ping`, lalu `cmd/api/main.go` melakukan `db.Ping()` lagi. Redis juga langsung `Ping(ctx)` dengan startup context global hanya 10 detik. Jika Supabase pooler atau Upstash Redis butuh beberapa detik lebih lama setelah cold-start/resume, initialization gagal dan proses `os.Exit(1)`, sehingga Render masuk crash loop.
+
+**Diselesaikan:** Startup DB dan Redis sekarang memakai retry terbatas dengan exponential backoff:
+- PostgreSQL pool dibuat dengan `sqlx.Open`, lalu health check dilakukan eksplisit via `PingContext`
+- Redis tetap dibuat sebagai client, lalu `Ping` diverifikasi dengan retry
+- Max 8 attempts, timeout 20 detik per attempt, backoff 2 detik sampai max 30 detik
+- Startup context tidak lagi fixed 10 detik, sehingga dependency punya waktu untuk siap saat cold-start
+
+**Pembelajaran:** Untuk managed dependency seperti Supabase, Upstash, atau service serverless lain, jangan jadikan first failed ping sebagai alasan langsung crash. Startup harus membedakan antara "dependency belum siap beberapa detik" dan "dependency benar-benar down". Gunakan retry dengan backoff dan limit, logging attempt yang jelas, serta timeout per attempt yang cukup longgar.
+
+---
+
 ## Improvement yang Sudah Dilakukan
 
 | Tanggal | Improvement |
@@ -111,6 +126,7 @@ Utility ini berguna jika perlu set password super_admin secara manual langsung k
 | 2026-06 | Koordinat GPS opsional di orders (origin_lat/lng, dest_lat/lng) |
 | 2026-07 | Endpoint reset password admin — `PATCH /admin/users/:id/password` (super_admin only) |
 | 2026-07 | Rate limiting login (10 req/IP/60s) + GPS throttle (1 req/trip/30s) via Redis |
+| 2026-08 | Startup retry dengan exponential backoff untuk PostgreSQL Supabase dan Upstash Redis |
 
 ---
 
@@ -129,3 +145,4 @@ Utility ini berguna jika perlu set password super_admin secara manual langsung k
 - [x] ~~Dokumentasi `cmd/genhash/`~~ — selesai (didokumentasikan di KNOWN_ISSUES #10)
 - [ ] Pindahkan logika generate order/trip number dari DB trigger ke Go
 - [x] ~~Throttling GPS location~~ — selesai (Redis SetNX 30 detik per trip)
+- [x] ~~Startup retry untuk DB/Redis managed dependency~~ — selesai (`sqlx.Open` + retry `PingContext`/Redis `Ping`)

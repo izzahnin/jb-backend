@@ -57,12 +57,20 @@ type Config struct {
 
 // Application holds all dependencies
 type Application struct {
-	Config    *Config
-	DB        *sqlx.DB
-	Redis     *database.RedisClient
-	Router    *gin.Engine
-	Handler   *handler.Handler
+	Config  *Config
+	DB      *sqlx.DB
+	Redis   *database.RedisClient
+	Router  *gin.Engine
+	Handler *handler.Handler
 }
+
+const (
+	startupMaxAttempts       = 8
+	startupAttemptTimeout    = 20 * time.Second
+	startupInitialBackoff    = 2 * time.Second
+	startupMaxBackoff        = 30 * time.Second
+	startupShutdownGraceTime = 10 * time.Second
+)
 
 func init() {
 	// Reject unknown JSON keys so PATCH requests with misspelled fields do not silently no-op.
@@ -130,6 +138,53 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
+func retryStartupDependency(
+	ctx context.Context,
+	name string,
+	maxAttempts int,
+	attemptTimeout time.Duration,
+	initialBackoff time.Duration,
+	maxBackoff time.Duration,
+	fn func(context.Context) error,
+) error {
+	backoff := initialBackoff
+	var lastErr error
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
+		err := fn(attemptCtx)
+		cancel()
+
+		if err == nil {
+			if attempt > 1 {
+				fmt.Printf("✅ %s connected after %d attempts\n", name, attempt)
+			}
+			return nil
+		}
+
+		lastErr = err
+		if attempt == maxAttempts {
+			break
+		}
+
+		fmt.Printf("⚠️  %s not ready yet (attempt %d/%d): %v. Retrying in %s...\n",
+			name, attempt, maxAttempts, err, backoff)
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%s startup retry cancelled: %w", name, ctx.Err())
+		case <-time.After(backoff):
+		}
+
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+
+	return fmt.Errorf("%s not ready after %d attempts: %w", name, maxAttempts, lastErr)
+}
+
 // InitializeApplication initializes all infrastructure dependencies
 func InitializeApplication(ctx context.Context, cfg *Config) (*Application, error) {
 	app := &Application{Config: cfg}
@@ -140,9 +195,10 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize PostgreSQL: %w", err)
 	}
-	
-	// Verify database connection
-	if err := db.Ping(); err != nil {
+
+	// Verify database connection with retry for cold-started Supabase/pooler.
+	if err := retryStartupDependency(ctx, "PostgreSQL", startupMaxAttempts, startupAttemptTimeout, startupInitialBackoff, startupMaxBackoff, db.PingContext); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("database health check failed: %w", err)
 	}
 	fmt.Println("✅ PostgreSQL connected")
@@ -151,10 +207,11 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 	// Initialize Redis
 	fmt.Println("🔧 Initializing Redis connection...")
 	redis := database.NewRedis(cfg.RedisAddr, cfg.RedisPassword, 0)
-	
-	// Verify Redis connection
-	if err := redis.Ping(ctx); err != nil {
+
+	// Verify Redis connection with retry for Upstash TLS/serverless wake-up latency.
+	if err := retryStartupDependency(ctx, "Redis", startupMaxAttempts, startupAttemptTimeout, startupInitialBackoff, startupMaxBackoff, redis.Ping); err != nil {
 		db.Close()
+		redis.Close()
 		return nil, fmt.Errorf("redis health check failed: %w", err)
 	}
 	fmt.Println("✅ Redis connected")
@@ -223,19 +280,19 @@ func InitializeApplication(ctx context.Context, cfg *Config) (*Application, erro
 // Cleanup gracefully closes all resources
 func (app *Application) Cleanup() error {
 	fmt.Println("\n🧹 Cleaning up resources...")
-	
+
 	if app.Redis != nil {
 		if err := app.Redis.Close(); err != nil {
 			fmt.Printf("⚠️  Warning: Redis cleanup error: %v\n", err)
 		}
 	}
-	
+
 	if app.DB != nil {
 		if err := app.DB.Close(); err != nil {
 			fmt.Printf("⚠️  Warning: Database cleanup error: %v\n", err)
 		}
 	}
-	
+
 	fmt.Println("✅ Cleanup completed")
 	return nil
 }
@@ -314,7 +371,7 @@ func main() {
 
 	// Initialize application
 	fmt.Println("\n⚙️  Initializing application...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	app, err := InitializeApplication(ctx, cfg)
@@ -356,7 +413,7 @@ func main() {
 	fmt.Printf("\n🛑 Received signal: %v\n", sig)
 
 	// Graceful shutdown with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), startupShutdownGraceTime)
 	defer shutdownCancel()
 
 	fmt.Println("\n⏳ Shutting down server gracefully...")
